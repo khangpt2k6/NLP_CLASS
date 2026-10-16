@@ -1,0 +1,18 @@
+# latex build files
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# local notes
+docs/superpowers/
