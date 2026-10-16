@@ -16,3 +16,6 @@ __pycache__/
 
 # local notes
 docs/superpowers/
+
+# tool scratch
+.playwright-mcp/
