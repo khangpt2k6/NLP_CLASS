@@ -18,51 +18,49 @@
 \title{Project Proposal: Reproducing OWL and Testing Whether\\
 Outlier Weighed Layerwise Sparsity Still Helps Small Modern LLMs}
 
-% TODO: put full name and USF email here
-\author{Kevin \\
-  University of South Florida \\
-  \texttt{netid@usf.edu}}
+\author{Tuan Khang Phan \and Xuan Gia Han Nguyen \\
+  University of South Florida}
 
 \begin{document}
 \maketitle
 
 \section{Introduction}
 
-We will reproduce ``Outlier Weighed Layerwise Sparsity (OWL): A Missing Secret Sauce for Pruning LLMs to High Sparsity'' \citep{yin2024owl}, published at ICML 2024. The paper studies one-shot unstructured pruning of LLMs with no retraining. Strong methods such as SparseGPT \citep{frantar2023sparsegpt} and Wanda \citep{sun2024wanda} prune every layer to the same sparsity. OWL questions this choice. It links pruning quality to outlier features, a few hidden dimensions with very large activations \citep{kovaleva2021bertbusters,dettmers2022llmint8}.
+We will reproduce ``Outlier Weighed Layerwise Sparsity (OWL): A Missing Secret Sauce for Pruning LLMs to High Sparsity'' \citep{yin2024owl}. The paper studies one-shot unstructured pruning of LLMs with no retraining. Strong methods such as SparseGPT \citep{frantar2023sparsegpt} and Wanda \citep{sun2024wanda} prune every layer to the same sparsity. OWL questions this choice and links pruning quality to outlier features, a few hidden dimensions with very large activations \citep{kovaleva2021bertbusters,dettmers2022llmint8}.
 
-OWL scores each weight with the Wanda metric $A_{ij} = \lVert \mathbf{X}_j \rVert_2 \cdot |W_{ij}|$. For each Transformer block $l$ it computes the Layerwise Outlier Distribution (LOD) $D^l$, the fraction of weights whose score is more than $M$ times the block mean. Blocks with more outliers are pruned less. The block sparsity is set by $S_l \propto 1 - D^l$ and rescaled to $[S-\lambda, S+\lambda]$, so the average stays at the target $S$. OWL adds almost no cost on top of Wanda or SparseGPT.
+OWL scores each weight with the Wanda metric $A_{ij} = \lVert \mathbf{X}_j \rVert_2 \cdot |W_{ij}|$. For each Transformer block $l$ it computes the Layerwise Outlier Distribution (LOD) $D^l$, the fraction of weights whose score is over $M$ times the block mean. Blocks with more outliers are pruned less: $S_l \propto 1 - D^l$, rescaled to $[S-\lambda, S+\lambda]$ so the average stays at the target $S$. This adds almost no cost on top of Wanda or SparseGPT.
 
-The paper makes four claims that we target. (C1) OWL improves both Wanda and SparseGPT at high sparsity. At 70\% sparsity on LLaMA-7B, WikiText perplexity drops from 85.77 to 24.55 with Wanda and from 26.30 to 19.49 with SparseGPT. (C2) The gain grows as the model gets smaller: 61.22 points at 7B but only 6.62 at 65B. (C3) Zero-shot accuracy also improves on seven tasks. (C4) The LOD of dense LLaMA models is far from uniform and roughly U-shaped, and the best pruning methods are the ones that keep outliers.
+We target four claims. (C1) OWL improves both Wanda and SparseGPT at high sparsity. At 70\% on LLaMA-7B, WikiText perplexity drops from 85.77 to 24.55 with Wanda and from 26.30 to 19.49 with SparseGPT. (C2) The gain grows as the model gets smaller: 61.22 points at 7B but only 6.62 at 65B. (C3) Zero-shot accuracy also improves on seven tasks. (C4) The LOD of dense LLaMA models is far from uniform and roughly U-shaped, and good pruning methods keep outliers.
 
 \section{Reproducing Main Results}
 
-We reproduce C1, C3 and C4, and the 7B and 13B part of C2. We skip the 30B and 65B models, the DeepSparse CPU speedups, LoRA fine-tuning and the appendix studies (vision, N:M, structured pruning, quantization).
+We reproduce C1, C3, C4 and the 7B and 13B part of C2. We skip the 30B and 65B models, the CPU speedup study, LoRA fine-tuning and the appendix studies.
 
-\paragraph{Models.} Our main model is LLaMA-7B \citep{touvron2023llama}, loaded from \texttt{huggyllama/llama-7b} because the checkpoint named in the official README is no longer on Hugging Face. We also run OPT-6.7B \citep{zhang2022opt} and LLaMA-13B. We use the hyperparameters from the paper's appendix: $M{=}5$ and $\lambda{=}0.08$ for 7B, $M{=}7$ for 13B and $M{=}10$ for OPT.
+\paragraph{Models.} Our main model is LLaMA-7B \citep{touvron2023llama}, loaded from \texttt{huggyllama/llama-7b} because the checkpoint in the official README was removed. We also run OPT-6.7B \citep{zhang2022opt} and LLaMA-13B, with the paper's hyperparameters ($M{=}5$, $\lambda{=}0.08$ for 7B, $M{=}7$ for 13B, $M{=}10$ for OPT).
 
-\paragraph{Data.} As in the paper, calibration uses 128 random 2048-token sequences from the first C4 shard \citep{raffel2020c4}. Perplexity is measured on WikiText-2 \citep{merity2017wikitext} with 2048-token windows. The paper calls this split ``validation'', but the released code uses the test split, so we follow the code. Zero-shot accuracy covers BoolQ \citep{clark2019boolq}, RTE \citep{wang2018glue}, HellaSwag \citep{zellers2019hellaswag}, WinoGrande \citep{sakaguchi2021winogrande}, ARC-e and ARC-c \citep{clark2018arc}, and OpenBookQA \citep{mihaylov2018obqa}, run with lm-eval-harness \citep{gao2024lmeval}.
+\paragraph{Data.} Calibration uses 128 random 2048-token sequences from the first C4 shard \citep{raffel2020c4}. Perplexity is measured on WikiText-2 \citep{merity2017wikitext} with 2048-token windows. The paper calls this split ``validation'', but the code uses the test split, so we follow the code. Zero-shot accuracy covers BoolQ \citep{clark2019boolq}, RTE \citep{wang2018glue}, HellaSwag \citep{zellers2019hellaswag}, WinoGrande \citep{sakaguchi2021winogrande}, ARC-e, ARC-c \citep{clark2018arc} and OpenBookQA \citep{mihaylov2018obqa}, run with lm-eval-harness \citep{gao2024lmeval}.
 
-\paragraph{Experiments.} (R1) Table~3: magnitude pruning, plus Wanda and SparseGPT each with uniform and OWL sparsity, at 70\% on all three models. (R2) Figure~2 and Table~8: a sparsity sweep from 40\% to 80\% on LLaMA-7B with Wanda. Here OWL is compared with uniform, global, ER, ER-plus and OWL-inverse allocations. (R3) Table~4: zero-shot accuracy of the dense and 70\% sparse LLaMA-7B models. (R4) Table~1 and Figure~1: the LOD profile of each dense model and how each pruning method changes it.
+\paragraph{Experiments.} (R1) Table~3: magnitude pruning, plus Wanda and SparseGPT each with uniform and OWL sparsity, at 70\% on all three models. (R2) Figure~2 and Table~8: a 40\% to 80\% sweep on LLaMA-7B with Wanda, comparing OWL with uniform, global, ER, ER-plus and OWL-inverse allocations. (R3) Table~4: zero-shot accuracy of the dense and 70\% sparse LLaMA-7B models. (R4) Table~1 and Figure~1: the LOD of each dense model and how each pruning method changes it.
 
-\paragraph{Known risks.} The code pins old library versions. Its zero-shot scripts need lm-eval 0.3.0, and its C4 loader breaks with new versions of \texttt{datasets}. Before any pruning we will check that our setup gives the paper's dense perplexity of 5.68 for LLaMA-7B. One open GitHub issue reports lower numbers than the paper (20.54 instead of 24.55 for OWL with Wanda), while other users report about 24.1 to 24.4. So we will always report our own dense and uniform baselines next to the paper's numbers. We count a result as reproduced if the ranking of methods matches at every sparsity and the OWL gain has the same size as in the paper.
+\paragraph{Known risks.} The code's zero-shot scripts need lm-eval 0.3.0 and its C4 loader fails with new \texttt{datasets} versions. We will first check that we get the paper's dense perplexity of 5.68 on LLaMA-7B. One GitHub issue reports better numbers than the paper (20.54 instead of 24.55 for OWL with Wanda), while other users get 24.1 to 24.4. So we will report our own dense and uniform baselines next to the paper's numbers. We count a result as reproduced if the method ranking matches at every sparsity and the OWL gain is of similar size.
 
 \section{Plans for Extension}
 
-Claim C2 was only tested on LLaMA-1, which has 7B to 65B parameters and was trained on at most 1.4T tokens. Modern small models are trained on much more data, about 15T tokens for Llama~3 \citep{grattafiori2024llama3} and 18T for Qwen2.5 \citep{qwen2025qwen25}. Evidence for OWL on such models is mixed. With SparseGPT at 70\%, OWL nearly halves the perplexity of Llama-3-8B, from 85.84 to 48.07 \citep{sieberling2025evopress}. But OWL slightly hurts a 1B Llama~3 model in a multilingual setting \citep{choenni2025mwanda}. Another recent study finds only marginal gains from layerwise allocation on Llama-3-8B \citep{jamshidi2026pals}. ATP \citep{huang2025atp} even argues for a sparsity schedule that simply increases with depth. As far as we know, no work tests OWL across sizes within one modern model family, or below 3B parameters. No work checks whether the U-shaped LOD holds in these models either. We ask two questions. Does OWL's benefit still grow as models get smaller? And does the shape of the LOD predict when OWL helps?
+C2 was only tested on LLaMA-1 (7B to 65B), trained on at most 1.4T tokens. Modern small models see far more data, about 15T tokens for Llama~3 \citep{grattafiori2024llama3} and 18T for Qwen2.5 \citep{qwen2025qwen25}. Evidence for OWL on them is mixed. With SparseGPT at 70\%, OWL nearly halves Llama-3-8B perplexity, from 85.84 to 48.07 \citep{sieberling2025evopress}. But OWL slightly hurts a 1B Llama~3 model in a multilingual setting \citep{choenni2025mwanda}, and layerwise allocation gives only marginal gains on Llama-3-8B in \citet{jamshidi2026pals}. ATP \citep{huang2025atp} even argues for a schedule that simply increases with depth. As far as we know, no work tests OWL across sizes within one modern family or below 3B, and no work checks the LOD shape of these models. We ask two questions. Does OWL's benefit still grow as models shrink? Does the LOD predict when OWL helps?
 
-\paragraph{E1: Scaling within a family.} We prune Qwen2.5 0.5B, 1.5B, 3B and 7B, and Llama-3.2 1B and 3B plus Llama-3.1 8B, at 50\%, 60\% and 70\% sparsity. Each model gets Wanda and SparseGPT with uniform and OWL allocation. We report WikiText-2 perplexity at every sparsity and mean zero-shot accuracy at 70\%. Then we plot the OWL gain against model size for each family.
+\paragraph{E1: Scaling within a family.} We prune Qwen2.5 0.5B, 1.5B, 3B and 7B, and Llama-3.2-1B, Llama-3.2-3B and Llama-3.1-8B, at 50\%, 60\% and 70\%. Each model gets Wanda and SparseGPT with uniform and OWL allocation. We report WikiText-2 perplexity at every sparsity and mean zero-shot accuracy at 70\%, then plot the OWL gain against model size.
 
-\paragraph{E2: Does the LOD predict the gain?} We compute the LOD of every dense model, including LLaMA-7B and OPT-6.7B from the reproduction. We check whether the U shape appears. We measure how uneven the LOD is with its coefficient of variation across blocks. Then we test, with a Spearman correlation over the ten models, whether more uneven models gain more from OWL.
+\paragraph{E2: Does the LOD predict the gain?} We compute the LOD of all ten dense models, including the three from the reproduction, and check for the U shape. We measure how uneven each LOD is with its coefficient of variation across blocks. A Spearman correlation then tests whether more uneven models gain more from OWL.
 
-\paragraph{E3: Hyperparameter transfer.} $M$ and $\lambda$ were tuned for LLaMA-1. A weak OWL result on a new model could just mean bad hyperparameters. We run the paper's grid, $M \in \{3,5,7,10\}$ and $\lambda \in \{0.02,0.05,0.08,0.1,0.2\}$, on Qwen2.5-1.5B and Llama-3.2-1B at 70\% with Wanda. We select on C4 validation perplexity, not on WikiText-2 test. We then rerun E1 at 70\% with the tuned values.
+\paragraph{E3: Hyperparameter transfer.} $M$ and $\lambda$ were tuned for LLaMA-1, so a weak result could just mean bad settings. We run the paper's grid ($M \in \{3,5,7,10\}$, $\lambda \in \{0.02,0.05,0.08,0.1,0.2\}$) on Qwen2.5-1.5B and Llama-3.2-1B at 70\% with Wanda. We select on C4 validation perplexity, not WikiText-2 test, and rerun E1 at 70\% with the tuned values.
 
-\paragraph{E4 (optional): Calibration language.} Qwen2.5 supports Vietnamese. We calibrate Qwen2.5-1.5B and 7B with Vietnamese Wikipedia text instead of English C4, using Wanda with uniform and OWL sparsity at 60\% and 70\%. Then we compare the LOD profiles and the perplexity on English WikiText-2 and held-out Vietnamese text. Earlier work on calibration language \citep{kurz2026limitations,choenni2025mwanda} did not study how OWL's allocation changes with the language.
+\paragraph{E4 (optional): Calibration language.} We calibrate Qwen2.5-1.5B and 7B on Vietnamese Wikipedia instead of English C4 (Wanda, uniform and OWL, 60\% and 70\%). We compare the LOD profiles and the perplexity on WikiText-2 and held-out Vietnamese text. Prior work on calibration language \citep{kurz2026limitations,choenni2025mwanda} did not study how OWL's allocation shifts.
 
-\paragraph{Code changes.} We will port the code to a recent \texttt{transformers} version between 4.43 and 4.47. Llama-3.1 needs at least 4.43, and 4.48 changed the attention interface that the code calls. We will also load tokenizers with \texttt{AutoTokenizer} and run lm-eval inside the same process, so pruned checkpoints never need to be saved.
+\paragraph{Code changes.} We will port the code to \texttt{transformers} 4.43 to 4.47 (Llama-3.1 needs 4.43, and 4.48 changed the attention call the code uses), switch to \texttt{AutoTokenizer}, and run lm-eval in the same process so no pruned checkpoint is saved.
 
 \section{Resources}
 
-All experiments run on local GPUs. No paid API is needed, because pruning needs direct access to the weights and every model above has open weights. Llama~3 needs a free access request on Hugging Face.
+No paid API is needed. Pruning needs direct access to the weights, and all models above are open-weight on Hugging Face (Llama~3 needs a free access request).
 
 \begin{table}[t]
 \centering
@@ -82,15 +80,15 @@ E4 & Qwen2.5-1.5B/7B & 16 & 2 \\
 Total & & 199 & 25 \\
 \bottomrule
 \end{tabular}
-\caption{Planned runs and estimated A100 hours. Each run is one pruning job plus its evaluation. Zero-shot evaluation is included in R3 and E1.}
+\caption{Planned runs (pruning plus evaluation) and estimated A100 hours.}
 \label{tab:budget}
 \end{table}
 
-\paragraph{Memory.} A 7B model in fp16 takes 13.5\,GB. OWL keeps the calibration activations of one block on the GPU, which adds about 4\,GB at 2048 tokens. So the peak is about 18\,GB, and 7B and 8B models need a GPU with at least 24\,GB. LLaMA-13B needs about 31\,GB. Models up to 3B fit on a 16\,GB card.
+\paragraph{Memory.} A 7B model in fp16 takes 13.5\,GB. The calibration activations of one block add about 4\,GB, so the peak is about 18\,GB. The 7B and 8B models need a 24\,GB or larger GPU, LLaMA-13B needs about 31\,GB, and models up to 3B fit on a 16\,GB card.
 
-\paragraph{Compute.} Pruning is cheap. The paper reports 266\,s for SparseGPT and under 1\,s for the Wanda metric on a 7B model on an A100, plus the forward passes. Table~\ref{tab:budget} estimates 25 A100 hours in total. We budget 50 hours to cover failed runs and reruns. Our main resource is USF's GAIVI cluster, which has 15 A100, 6 H100 and 10 L40S GPUs and is free for students with a supervisor's approval. Its jobs can be preempted. Each run is short and saves its results when it ends, so a preemption costs at most one run.
+\paragraph{Compute.} On an A100 the paper reports 266\,s for SparseGPT and under 1\,s for the Wanda metric on 7B, plus forward passes. Table~\ref{tab:budget} estimates 25 A100 hours, and we budget 50 to cover reruns. Our main resource is USF's GAIVI cluster (15 A100, 6 H100 and 10 L40S GPUs), which is free for students with a supervisor's approval. Its jobs can be preempted, but each run is short and saves its results at the end, so we lose at most one run.
 
-\paragraph{Backup.} Kaggle Notebooks give two 16\,GB T4 GPUs for about 30 hours per week, which covers every model up to 3B and the whole E3 grid. Modal's free credit of \$30 per month buys about 14 hours on an A100 40GB, which is enough for the 7B SparseGPT runs. In the worst case, renting an RTX 4090 or A100 costs \$0.3 to \$1.8 per hour, so the full budget stays under \$70.
+\paragraph{Backup.} Kaggle gives two 16\,GB T4 GPUs for about 30 hours a week, enough for all models up to 3B and the E3 grid. Modal's free \$30 monthly credit buys about 14 A100 hours for the 7B SparseGPT runs. A rented RTX 4090 or A100 costs \$0.3 to \$1.8 per hour, so even a fully paid budget stays under \$70.
 
 \bibliography{references}
 
