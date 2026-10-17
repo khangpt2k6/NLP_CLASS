@@ -36,7 +36,7 @@ We target four claims. (C1) OWL improves both Wanda and SparseGPT at high sparsi
 
 We reproduce C1, C3, C4 and the 7B and 13B part of C2. We skip the 30B and 65B models, the CPU speedup study, LoRA fine-tuning and the appendix studies.
 
-\paragraph{Models.} Our main model is LLaMA-7B \citep{touvron2023llama}, loaded from \texttt{huggyllama/llama-7b} because the checkpoint in the official README was removed. We also run OPT-6.7B \citep{zhang2022opt} and LLaMA-13B, with the paper's hyperparameters ($M{=}5$, $\lambda{=}0.08$ for 7B, $M{=}7$ for 13B, $M{=}10$ for OPT).
+\paragraph{Models.} Our main model is LLaMA-7B \citep{touvron2023llama}. The checkpoint in the official README was removed, so we use \texttt{huggyllama/llama-7b}. We also run OPT-6.7B \citep{zhang2022opt} and LLaMA-13B, with the paper's hyperparameters ($M{=}5$, $\lambda{=}0.08$ for 7B, $M{=}7$ for 13B, $M{=}10$ for OPT).
 
 \paragraph{Data.} Calibration uses 128 random 2048-token sequences from the first C4 shard \citep{raffel2020c4}. Perplexity is measured on WikiText-2 \citep{merity2017wikitext} with 2048-token windows. The paper calls this split ``validation'', but the code uses the test split, so we follow the code. Zero-shot accuracy covers BoolQ \citep{clark2019boolq}, RTE \citep{wang2018glue}, HellaSwag \citep{zellers2019hellaswag}, WinoGrande \citep{sakaguchi2021winogrande}, ARC-e, ARC-c \citep{clark2018arc} and OpenBookQA \citep{mihaylov2018obqa}, run with lm-eval-harness \citep{gao2024lmeval}.
 
