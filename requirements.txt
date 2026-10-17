@@ -1,0 +1,10 @@
+torch>=2.1
+transformers>=4.45
+accelerate>=0.30
+datasets>=2.19
+lm-eval>=0.4.3
+sentencepiece
+protobuf
+numpy
+scipy
+pytest
