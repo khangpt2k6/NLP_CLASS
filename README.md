@@ -72,6 +72,10 @@ In a notebook with GPU T4 x2 and internet on:
 ```
 T4 has no fast bf16, so pass `--dtype fp16`. Copy `results/` out of `/kaggle/working` before the session ends.
 
+## Status
+- 2026-10-17: 28 unit tests pass (torch 2.11, transformers 5.5). CPU smoke runs of Wanda+OWL and SparseGPT+OWL on SmolLM2-135M work end to end, including C4 calibration, WikiText-2/C4 perplexity, LOD logging and lm-eval 0.4.13 zero-shot.
+- Next: GAIVI account, then check dense LLaMA-7B WikiText-2 perplexity is 5.68 before running r1.
+
 ## Differences from the original code
 - The original calls each block as `layer(x, attention_mask, position_ids)`, which breaks on `transformers` 4.48 and later. We record the arguments the model itself passes to every block (forward pre-hooks) and replay them. A test checks that this gives the same hidden states as a normal forward on LLaMA, Qwen2 and OPT.
 - Tokenizers load with `AutoTokenizer`. Model blocks are found for LLaMA, Qwen2, Mistral and OPT.
