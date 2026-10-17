@@ -1,0 +1,10 @@
+--model huggyllama/llama-7b --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/llama7b_dense.json
+--model huggyllama/llama-13b --method dense --alloc uniform --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/llama13b_dense.json
+--model facebook/opt-6.7b --method dense --alloc uniform --sparsity 0.7 --M 10 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/opt6.7b_dense.json
+--model Qwen/Qwen2.5-0.5B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/qwen2.5-0.5b_dense.json
+--model Qwen/Qwen2.5-1.5B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/qwen2.5-1.5b_dense.json
+--model Qwen/Qwen2.5-3B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/qwen2.5-3b_dense.json
+--model Qwen/Qwen2.5-7B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/qwen2.5-7b_dense.json
+--model meta-llama/Llama-3.2-1B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/llama3.2-1b_dense.json
+--model meta-llama/Llama-3.2-3B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/llama3.2-3b_dense.json
+--model meta-llama/Llama-3.1-8B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/llama3.1-8b_dense.json

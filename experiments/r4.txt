@@ -1,0 +1,14 @@
+--model huggyllama/llama-7b --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_dense.json
+--model huggyllama/llama-7b --method magnitude --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_magnitude_uniform_s60_lod.json
+--model huggyllama/llama-7b --method wanda --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_wanda_uniform_s60_lod.json
+--model huggyllama/llama-7b --method sparsegpt --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_sparsegpt_uniform_s60_lod.json
+--model huggyllama/llama-7b --method magnitude --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_magnitude_uniform_s70_lod.json
+--model huggyllama/llama-7b --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_wanda_uniform_s70_lod.json
+--model huggyllama/llama-7b --method sparsegpt --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_sparsegpt_uniform_s70_lod.json
+--model huggyllama/llama-13b --method dense --alloc uniform --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama13b_dense.json
+--model huggyllama/llama-13b --method magnitude --alloc uniform --sparsity 0.6 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama13b_magnitude_uniform_s60_lod.json
+--model huggyllama/llama-13b --method wanda --alloc uniform --sparsity 0.6 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama13b_wanda_uniform_s60_lod.json
+--model huggyllama/llama-13b --method sparsegpt --alloc uniform --sparsity 0.6 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama13b_sparsegpt_uniform_s60_lod.json
+--model huggyllama/llama-13b --method magnitude --alloc uniform --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama13b_magnitude_uniform_s70_lod.json
+--model huggyllama/llama-13b --method wanda --alloc uniform --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama13b_wanda_uniform_s70_lod.json
+--model huggyllama/llama-13b --method sparsegpt --alloc uniform --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama13b_sparsegpt_uniform_s70_lod.json

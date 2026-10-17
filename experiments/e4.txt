@@ -1,0 +1,18 @@
+--model Qwen/Qwen2.5-1.5B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2,viwiki --out results/e4/qwen2.5-1.5b_dense.json
+--model Qwen/Qwen2.5-1.5B --method wanda --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-1.5b_wanda_uniform_s60.json
+--model Qwen/Qwen2.5-1.5B --method wanda --alloc owl --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-1.5b_wanda_owl_s60_M5_l0.08.json
+--model Qwen/Qwen2.5-1.5B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-1.5b_wanda_uniform_s70.json
+--model Qwen/Qwen2.5-1.5B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-1.5b_wanda_owl_s70_M5_l0.08.json
+--model Qwen/Qwen2.5-1.5B --method wanda --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib viwiki --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-1.5b_wanda_uniform_s60_viwiki.json
+--model Qwen/Qwen2.5-1.5B --method wanda --alloc owl --sparsity 0.6 --M 5 --lam 0.08 --calib viwiki --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-1.5b_wanda_owl_s60_M5_l0.08_viwiki.json
+--model Qwen/Qwen2.5-1.5B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib viwiki --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-1.5b_wanda_uniform_s70_viwiki.json
+--model Qwen/Qwen2.5-1.5B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib viwiki --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-1.5b_wanda_owl_s70_M5_l0.08_viwiki.json
+--model Qwen/Qwen2.5-7B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2,viwiki --out results/e4/qwen2.5-7b_dense.json
+--model Qwen/Qwen2.5-7B --method wanda --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-7b_wanda_uniform_s60.json
+--model Qwen/Qwen2.5-7B --method wanda --alloc owl --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-7b_wanda_owl_s60_M5_l0.08.json
+--model Qwen/Qwen2.5-7B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-7b_wanda_uniform_s70.json
+--model Qwen/Qwen2.5-7B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-7b_wanda_owl_s70_M5_l0.08.json
+--model Qwen/Qwen2.5-7B --method wanda --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib viwiki --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-7b_wanda_uniform_s60_viwiki.json
+--model Qwen/Qwen2.5-7B --method wanda --alloc owl --sparsity 0.6 --M 5 --lam 0.08 --calib viwiki --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-7b_wanda_owl_s60_M5_l0.08_viwiki.json
+--model Qwen/Qwen2.5-7B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib viwiki --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-7b_wanda_uniform_s70_viwiki.json
+--model Qwen/Qwen2.5-7B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib viwiki --eval wikitext2,viwiki --lod 5 --out results/e4/qwen2.5-7b_wanda_owl_s70_M5_l0.08_viwiki.json

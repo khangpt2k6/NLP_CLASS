@@ -19,3 +19,9 @@ docs/superpowers/
 
 # tool scratch
 .playwright-mcp/
+
+# run outputs (results json are committed, these are not)
+logs/
+.hf_cache/
+*.tmp
+results/smoke/
