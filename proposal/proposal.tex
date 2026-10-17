@@ -28,7 +28,7 @@ Outlier Weighed Layerwise Sparsity Still Helps Small Modern LLMs}
 
 We will reproduce ``Outlier Weighed Layerwise Sparsity (OWL): A Missing Secret Sauce for Pruning LLMs to High Sparsity'' \citep{yin2024owl}. The paper studies one-shot unstructured pruning of LLMs with no retraining. Strong methods such as SparseGPT \citep{frantar2023sparsegpt} and Wanda \citep{sun2024wanda} prune every layer to the same sparsity. OWL questions this choice and links pruning quality to outlier features, a few hidden dimensions with very large activations \citep{kovaleva2021bertbusters,dettmers2022llmint8}.
 
-OWL scores each weight with the Wanda metric $A_{ij} = \lVert \mathbf{X}_j \rVert_2 \cdot |W_{ij}|$. For each Transformer block $l$ it computes the Layerwise Outlier Distribution (LOD) $D^l$, the fraction of weights whose score is over $M$ times the block mean. Blocks with more outliers are pruned less: $S_l \propto 1 - D^l$, rescaled to $[S-\lambda, S+\lambda]$ so the average stays at the target $S$. This adds almost no cost on top of Wanda or SparseGPT.
+OWL scores each weight with the Wanda metric $A_{ij} = \lVert \mathbf{X}_j \rVert_2 \cdot |W_{ij}|$. For each Transformer block $l$ it computes the Layerwise Outlier Distribution (LOD) $D^l$, the fraction of weights whose score is over $M$ times the block mean. Blocks with more outliers are pruned less: $S_l \propto 1 - D^l$, rescaled into a band of width $2\lambda$ whose mean is the target $S$. This adds almost no cost on top of Wanda or SparseGPT.
 
 We target four claims. (C1) OWL improves both Wanda and SparseGPT at high sparsity. At 70\% on LLaMA-7B, WikiText perplexity drops from 85.77 to 24.55 with Wanda and from 26.30 to 19.49 with SparseGPT. (C2) The gain grows as the model gets smaller: 61.22 points at 7B but only 6.62 at 65B. (C3) Zero-shot accuracy also improves on seven tasks. (C4) The LOD of dense LLaMA models is far from uniform and roughly U-shaped, and good pruning methods keep outliers.
 
@@ -56,7 +56,7 @@ C2 was only tested on LLaMA-1 (7B to 65B), trained on at most 1.4T tokens. Moder
 
 \paragraph{E4 (optional): Calibration language.} We calibrate Qwen2.5-1.5B and 7B on Vietnamese Wikipedia instead of English C4 (Wanda, uniform and OWL, 60\% and 70\%). We compare the LOD profiles and the perplexity on WikiText-2 and held-out Vietnamese text. Prior work on calibration language \citep{kurz2026limitations,choenni2025mwanda} did not study how OWL's allocation shifts.
 
-\paragraph{Code changes.} We will port the code to \texttt{transformers} 4.43 to 4.47 (Llama-3.1 needs 4.43, and 4.48 changed the attention call the code uses), switch to \texttt{AutoTokenizer}, and run lm-eval in the same process so no pruned checkpoint is saved.
+\paragraph{Code changes.} The code calls each block in a way that breaks on \texttt{transformers} 4.48 and later. We record the arguments the model passes to each block and replay them, so it runs on current versions. We also use \texttt{AutoTokenizer} and run lm-eval in the same process, so no pruned checkpoint is saved.
 
 \section{Resources}
 
