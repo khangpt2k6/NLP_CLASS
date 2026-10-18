@@ -22,7 +22,7 @@ NEW_MODELS = ["qwen2.5-0.5b", "qwen2.5-1.5b", "qwen2.5-3b", "qwen2.5-7b", "llama
 
 
 def job(group, short, method, alloc="uniform", s=0.7, M=None, lam=None, calib="c4",
-        evals="wikitext2", zs=False, lod="", tag="", seed=0):
+        evals="wikitext2", zs=False, lod="", tag="", seed=0, perm=0):
     name, M0, lam0 = MODELS[short]
     M = M0 if M is None else M
     lam = lam0 if lam is None else lam
@@ -33,6 +33,8 @@ def job(group, short, method, alloc="uniform", s=0.7, M=None, lam=None, calib="c
             parts += [f"M{M:g}", f"l{lam:g}"]
     if seed:
         parts.append(f"seed{seed}")
+    if perm:
+        parts.append(f"perm{perm}")
     if calib != "c4":
         parts.append(calib)
     if tag:
@@ -42,6 +44,8 @@ def job(group, short, method, alloc="uniform", s=0.7, M=None, lam=None, calib="c
             f"--M {M:g}", f"--lam {lam:g}", f"--calib {calib}", f"--eval {evals}"]
     if seed:
         args.append(f"--seed {seed}")
+    if perm:
+        args.append(f"--shuffle_seed {perm}")
     if zs:
         args.append("--zeroshot all")
     if lod:
@@ -88,8 +92,9 @@ def e1():
                     jobs.append(job("e1", short, method, alloc, s, zs=(s == 0.7)))
     # control: OWL's block sparsities randomly reassigned to blocks, three permutations per model
     for short in NEW_MODELS:
-        for seed in [1, 2, 3]:
-            jobs.append(job("e1", short, "wanda", "owl_shuffle", 0.7, seed=seed))
+        for perm in [1, 2, 3]:
+            # calibration seed stays 0, so only the block order differs from the OWL run
+            jobs.append(job("e1", short, "wanda", "owl_shuffle", 0.7, perm=perm))
     # calibration robustness: two more C4 samples (seeds) for the smallest model of each family
     for short in ["qwen2.5-0.5b", "llama3.2-1b"]:
         for seed in [1, 2]:

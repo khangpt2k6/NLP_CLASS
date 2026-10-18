@@ -101,7 +101,7 @@ def test_lod_and_ppl_run():
 
 def test_owl_shuffle_permutes_owl():
     owl = prune(tiny("llama"), calib(), "wanda", "owl", 0.6, M=3, lam=0.1)
-    shuf = prune(tiny("llama"), calib(), "wanda", "owl_shuffle", 0.6, M=3, lam=0.1, seed=1)
+    shuf = prune(tiny("llama"), calib(), "wanda", "owl_shuffle", 0.6, M=3, lam=0.1, shuffle_seed=1)
     assert np.allclose(sorted(owl["block_target"]), sorted(shuf["block_target"]))
 
 

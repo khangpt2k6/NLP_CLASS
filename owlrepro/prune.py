@@ -124,7 +124,7 @@ def linear_shapes(model) -> dict:
 
 @torch.no_grad()
 def prune(model, calib, method: str, alloc: str, sparsity: float, M: float = 5.0, lam: float = 0.08,
-          seed: int = 0) -> dict:
+          shuffle_seed: int = 0) -> dict:
     """Run one pruning job and return what we want to log about the allocation."""
     assert method in METHODS and alloc in ALLOCS
     info: dict = {"method": method, "alloc": alloc, "target_sparsity": sparsity}
@@ -140,7 +140,7 @@ def prune(model, calib, method: str, alloc: str, sparsity: float, M: float = 5.0
         if alloc == "owl_shuffle":
             # control: same set of block sparsities, randomly reassigned to blocks. All blocks of
             # one model have the same size, so the global sparsity does not change.
-            block = np.random.default_rng(seed).permutation(block)
+            block = np.random.default_rng(shuffle_seed).permutation(block)
         info.update(lod=lod, block_target=block.tolist())
         ratio_of = lambda i, n: float(block[i])
     elif alloc in ("er", "er_plus"):

@@ -35,7 +35,8 @@ def parse_args(argv=None):
     p.add_argument("--lam", type=float, default=0.08, help="lambda (Lamda in the original code)")
     p.add_argument("--nsamples", type=int, default=128)
     p.add_argument("--seqlen", type=int, default=2048)
-    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--seed", type=int, default=0, help="calibration sampling seed")
+    p.add_argument("--shuffle_seed", type=int, default=0, help="permutation seed for --alloc owl_shuffle")
     p.add_argument("--calib", default="c4", choices=("c4", "viwiki"))
     p.add_argument("--dtype", default="auto", choices=("auto", "fp16", "bf16", "fp32"))
     p.add_argument("--eval", default="wikitext2", help="comma list of wikitext2,c4,viwiki or 'none'")
@@ -96,7 +97,7 @@ def main(argv=None) -> dict | None:
         result["score_means_dense"] = dense["means"]
 
     if args.method != "dense":
-        result["prune"] = prune(model, calib, args.method, args.alloc, args.sparsity, args.M, args.lam, args.seed)
+        result["prune"] = prune(model, calib, args.method, args.alloc, args.sparsity, args.M, args.lam, args.shuffle_seed)
     result["sparsity"] = total_sparsity(model)
     result["block_sparsity"] = block_sparsity(model)
 

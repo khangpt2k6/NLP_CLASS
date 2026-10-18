@@ -29,7 +29,7 @@ python -m owlrepro.run --model huggyllama/llama-7b --method wanda --alloc owl \
     --sparsity 0.7 --M 5 --lam 0.08 --zeroshot all --out results/r1/llama7b_wanda_owl_s70_M5_l0.08.json
 ```
 - `--method`: `dense`, `magnitude`, `wanda`, `sparsegpt`
-- `--alloc`: `uniform`, `owl`, `owl_inv`, `owl_shuffle`, `er`, `er_plus`, `global` (`owl_shuffle` randomly permutes OWL's block sparsities, seeded by `--seed`)
+- `--alloc`: `uniform`, `owl`, `owl_inv`, `owl_shuffle`, `er`, `er_plus`, `global` (`owl_shuffle` randomly permutes OWL's block sparsities, seeded by `--shuffle_seed`; `--seed` only changes the calibration sample)
 - `--eval`: any of `wikitext2,c4,viwiki`
 - `--lod 5,7`: also log the layerwise outlier distribution before and after pruning
 - `--calib viwiki`: calibrate on Vietnamese Wikipedia instead of C4 (E4)
