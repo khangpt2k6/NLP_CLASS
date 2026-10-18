@@ -5,7 +5,7 @@ CAI 5307 (Fall 2026) course project: reproduce and extend OWL, "Outlier Weighed 
 Authors: Tuan Khang Phan, Xuan Gia Han Nguyen (University of South Florida).
 
 ## Files
-- [proposal/proposal.pdf](proposal/proposal.pdf): project proposal (ACL template, 2 pages + references)
+- [proposal/ProjectProposal_TKP-XGHN.pdf](proposal/ProjectProposal_TKP-XGHN.pdf): project proposal (ACL template, 2 pages + references)
 - [owlrepro/](owlrepro/): our port of OWL, Wanda, SparseGPT and magnitude pruning
 - [scripts/make_jobs.py](scripts/make_jobs.py): writes the job lists in [experiments/](experiments/)
 - [slurm/run_array.sbatch](slurm/run_array.sbatch): runs a job list as a SLURM array on GAIVI
