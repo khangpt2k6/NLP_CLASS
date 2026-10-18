@@ -23,6 +23,11 @@ A 7B model in fp16 is about 13.5 GB. Pruning runs layer by layer, so one 16 GB G
 - For classes. The instructor emails rc-help@usf.edu with the course ID and roster.
 - The hardware page lists no GPUs, so it is probably not useful here.
 
+## Colab Pro (we both have it) - use this until GAIVI is approved
+- 100 compute units per month per account. A100 (40 GB) costs about 5 to 15 units per hour (Google does not publish the rate), so two accounts give about 13 to 37 A100 hours a month.
+- L4 (24 GB) is much cheaper per hour and fits 7B/8B models. Use A100 for LLaMA-13B (about 31 GB peak).
+- Sessions can disconnect. Each run writes its JSON only when it finishes, so save `results/` to Google Drive after every run.
+
 ## Free, no approval
 
 ### Kaggle Notebooks - best fallback
@@ -52,6 +57,6 @@ A 7B model in fp16 is about 13.5 GB. Pruning runs layer by layer, so one 16 GB G
 - The whole project needs roughly 40 to 60 GPU hours, so the worst case is about $15 to $70.
 
 ## Plan
-1. Ask the instructor today to approve a GAIVI account.
+1. Ask the instructor today to approve a GAIVI account, and start on Colab Pro right away.
 2. Start on Kaggle (2x T4) while waiting.
 3. Use Modal free credit for the SparseGPT runs if GAIVI is not ready.

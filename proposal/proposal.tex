@@ -86,9 +86,9 @@ Total & & 228 & 28 \\
 
 \paragraph{Memory.} A 7B model peaks at about 18\,GB in fp16 (13.5\,GB of weights plus one block's calibration activations), so 7B and 8B models need a 24\,GB GPU, LLaMA-13B about 31\,GB, and models up to 3B fit in 16\,GB.
 
-\paragraph{Compute.} The paper reports 266\,s for SparseGPT on a 7B model and under 1\,s for the Wanda metric. Table~\ref{tab:budget} estimates 28 A100 hours, to be confirmed by profiling a small Wanda and a 7B SparseGPT run. Zero-shot evaluation and reruns may cost more, so we budget 60. We use USF's GAIVI cluster (15 A100, 6 H100, 10 L40S), free with a supervisor's approval. Preempted runs are resubmitted; finished ones are skipped.
+\paragraph{Compute.} From the paper's timings (266\,s for SparseGPT on 7B, under 1\,s for the Wanda metric), Table~\ref{tab:budget} estimates 28 A100 hours. We budget 60 for zero-shot evaluation and reruns. We use USF's GAIVI cluster (15 A100, 6 H100, 10 L40S), free with a supervisor's approval.
 
-\paragraph{Backup.} Kaggle's 16\,GB T4s (30 hours a week) cover models up to 3B, Modal's \$30 monthly credit buys 14 A100 hours, and 60 rented hours (\$0.3 to \$1.8 each) cost under \$110.
+\paragraph{Colab Pro.} Both authors have Google Colab Pro (100 compute units a month each, A100 40\,GB and L4 GPUs), worth 13 to 37 A100 hours a month at 5 to 15 units per hour. It is available now and fits every model up to 13B. Kaggle, Modal credit or 60 rented hours (under \$110) are backups.
 
 \bibliography{references}
 
