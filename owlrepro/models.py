@@ -36,7 +36,10 @@ def load_model(name: str, dtype: str = "auto", seqlen: int = 2048, device_map: s
 
 
 def load_tokenizer(name: str):
-    tok = AutoTokenizer.from_pretrained(name, use_fast=True)
+    # the original main.py loads LLaMA-1 and OPT with the slow tokenizer (use_fast=False); the fast
+    # one can tokenize WikiText-2 differently, which changes perplexity
+    paper_model = any(h in name.lower() for h in _FP16_HINTS)
+    tok = AutoTokenizer.from_pretrained(name, use_fast=not paper_model)
     if tok.pad_token is None and tok.eos_token is not None:
         tok.pad_token = tok.eos_token
     return tok

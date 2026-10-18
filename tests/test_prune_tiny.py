@@ -7,7 +7,7 @@ from transformers import LlamaConfig, LlamaForCausalLM, OPTConfig, OPTForCausalL
 from owlrepro.calib import CalibRunner
 from owlrepro.evaluate import perplexity
 from owlrepro.models import block_sparsity, find_linears, get_layers, total_sparsity
-from owlrepro.prune import outlier_pass, prune
+from owlrepro.prune import outlier_pass, prune, summarize_lod
 
 VOCAB, HID, LAYERS, SEQ, N = 128, 64, 4, 32, 4
 
@@ -75,7 +75,7 @@ def test_owl_follows_allocation(method):
     assert abs(total_sparsity(model) - 0.6) < 0.03
 
 
-@pytest.mark.parametrize("alloc", ["er", "er_plus", "global", "owl_inv"])
+@pytest.mark.parametrize("alloc", ["er", "er_plus", "global", "owl_inv", "owl_shuffle"])
 def test_other_allocs_hit_target(alloc):
     model = tiny("llama")
     prune(model, calib(), "wanda", alloc, 0.6, M=3, lam=0.1)
@@ -97,3 +97,14 @@ def test_lod_and_ppl_run():
     assert all(a >= b for a, b in zip(st["lod"][3.0], st["lod"][5.0]))
     ppl = perplexity(model, ids.reshape(1, -1), SEQ)
     assert np.isfinite(ppl)
+
+
+def test_owl_shuffle_permutes_owl():
+    owl = prune(tiny("llama"), calib(), "wanda", "owl", 0.6, M=3, lam=0.1)
+    shuf = prune(tiny("llama"), calib(), "wanda", "owl_shuffle", 0.6, M=3, lam=0.1, seed=1)
+    assert np.allclose(sorted(owl["block_target"]), sorted(shuf["block_target"]))
+
+
+def test_u_contrast():
+    assert summarize_lod([3, 1, 1, 1, 1, 1, 1, 1, 1, 3])["u"] == 1.0
+    assert summarize_lod([1, 3, 1, 3, 1, 3, 1, 3, 1, 3])["u"] < 0.5

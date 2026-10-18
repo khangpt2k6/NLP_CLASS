@@ -12,7 +12,7 @@ from .models import find_linears, get_layers
 from .sparsegpt import SparseGPT
 
 METHODS = ("magnitude", "wanda", "sparsegpt")
-ALLOCS = ("uniform", "owl", "owl_inv", "er", "er_plus", "global")
+ALLOCS = ("uniform", "owl", "owl_inv", "owl_shuffle", "er", "er_plus", "global")
 # total number of scores sampled to estimate the global threshold
 GLOBAL_SAMPLE = 20_000_000
 
@@ -123,7 +123,8 @@ def linear_shapes(model) -> dict:
 
 
 @torch.no_grad()
-def prune(model, calib, method: str, alloc: str, sparsity: float, M: float = 5.0, lam: float = 0.08) -> dict:
+def prune(model, calib, method: str, alloc: str, sparsity: float, M: float = 5.0, lam: float = 0.08,
+          seed: int = 0) -> dict:
     """Run one pruning job and return what we want to log about the allocation."""
     assert method in METHODS and alloc in ALLOCS
     info: dict = {"method": method, "alloc": alloc, "target_sparsity": sparsity}
@@ -132,10 +133,14 @@ def prune(model, calib, method: str, alloc: str, sparsity: float, M: float = 5.0
 
     if alloc == "uniform":
         ratio_of = lambda i, n: sparsity
-    elif alloc in ("owl", "owl_inv"):
+    elif alloc in ("owl", "owl_inv", "owl_shuffle"):
         stats = outlier_pass(model, calib, [M])
         lod = stats["lod"][float(M)]
         block = owl_block_sparsity(lod, sparsity, lam, inverse=(alloc == "owl_inv"))
+        if alloc == "owl_shuffle":
+            # control: same set of block sparsities, randomly reassigned to blocks. All blocks of
+            # one model have the same size, so the global sparsity does not change.
+            block = np.random.default_rng(seed).permutation(block)
         info.update(lod=lod, block_target=block.tolist())
         ratio_of = lambda i, n: float(block[i])
     elif alloc in ("er", "er_plus"):
@@ -161,4 +166,8 @@ def prune(model, calib, method: str, alloc: str, sparsity: float, M: float = 5.0
 
 def summarize_lod(lod: list[float]) -> dict:
     a = np.asarray(lod)
-    return {"sum": float(a.sum()), "mean": float(a.mean()), "cv": float(a.std() / a.mean()) if a.mean() > 0 else 0.0}
+    # U-shape contrast: mean of the first and last 20% of blocks minus the mean of the middle 60%
+    k = max(1, int(round(0.2 * len(a))))
+    u = float(np.concatenate([a[:k], a[-k:]]).mean() - a[k:-k].mean()) if len(a) > 2 * k else 0.0
+    return {"sum": float(a.sum()), "mean": float(a.mean()), "cv": float(a.std() / a.mean()) if a.mean() > 0 else 0.0,
+            "u": u}

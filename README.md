@@ -29,10 +29,11 @@ python -m owlrepro.run --model huggyllama/llama-7b --method wanda --alloc owl \
     --sparsity 0.7 --M 5 --lam 0.08 --zeroshot all --out results/r1/llama7b_wanda_owl_s70_M5_l0.08.json
 ```
 - `--method`: `dense`, `magnitude`, `wanda`, `sparsegpt`
-- `--alloc`: `uniform`, `owl`, `owl_inv`, `er`, `er_plus`, `global`
+- `--alloc`: `uniform`, `owl`, `owl_inv`, `owl_shuffle`, `er`, `er_plus`, `global` (`owl_shuffle` randomly permutes OWL's block sparsities, seeded by `--seed`)
 - `--eval`: any of `wikitext2,c4,viwiki`
 - `--lod 5,7`: also log the layerwise outlier distribution before and after pruning
 - `--calib viwiki`: calibrate on Vietnamese Wikipedia instead of C4 (E4)
+- `--save_model DIR`: also save the pruned checkpoint (for the authors' zero-shot scripts, see below)
 
 Each run writes one JSON file with the arguments, library versions, block sparsities, OWL ratios, perplexities and zero-shot accuracies. If the file exists the run is skipped.
 
@@ -57,7 +58,7 @@ Check the GPU type and partition names with `sinfo` first. 7B and 8B models need
 | r1 | Table 3 at 70% on LLaMA-7B, OPT-6.7B, LLaMA-13B (zero-shot of Table 4 on LLaMA-7B) | 18 |
 | r2 | Table 8 / Figure 2: 40% to 80% sweep, six allocations, LLaMA-7B + Wanda | 30 |
 | r4 | Table 1: LOD before and after pruning | 14 |
-| e1 | OWL vs uniform on Qwen2.5 0.5B to 7B and Llama-3.x 1B to 8B | 91 |
+| e1 | OWL vs uniform on Qwen2.5 0.5B to 7B and Llama-3.x 1B to 8B, shuffled-OWL control, extra calibration seeds | 120 |
 | e2 | Dense LOD of all ten models for M in 3, 5, 7, 10 | 10 |
 | e3 | M and lambda grid on Qwen2.5-1.5B and Llama-3.2-1B | 40 |
 | e4 | Vietnamese vs English calibration | 18 |
@@ -76,7 +77,20 @@ T4 has no fast bf16, so pass `--dtype fp16`. Copy `results/` out of `/kaggle/wor
 - 2026-10-17: 28 unit tests pass (torch 2.11, transformers 5.5). CPU smoke runs of Wanda+OWL and SparseGPT+OWL on SmolLM2-135M work end to end, including C4 calibration, WikiText-2/C4 perplexity, LOD logging and lm-eval 0.4.13 zero-shot.
 - Next: GAIVI account, then check dense LLaMA-7B WikiText-2 perplexity is 5.68 before running r1.
 
+## Zero-shot exactly as in Table 4
+Our `--zeroshot` uses lm-eval 0.4, whose prompts and metrics differ from the authors' pipeline, so it will not match Table 4 number for number. For R3, save the pruned model and run the authors' scripts (in their repo, `zero_shot_benchmark/`) in a separate environment with `lm-eval==0.3.0`:
+```
+python -m owlrepro.run --model huggyllama/llama-7b --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 \
+    --save_model ckpt/llama7b_wanda_owl_s70 --out results/r3/llama7b_wanda_owl_s70.json
+git clone https://github.com/luuyin/OWL.git && cd OWL/zero_shot_benchmark
+bash scripts/data_genration/run.sh                                 # writes the request files
+# set model=../../ckpt/llama7b_wanda_owl_s70 in scripts/benchmark/run.sh, then
+bash scripts/benchmark/run.sh && bash scripts/benchmark/eval.sh
+```
+Table 4 does not say whether it uses acc or acc_norm, so keep both.
+
 ## Differences from the original code
+- LLaMA-1 and OPT load the slow tokenizer (`use_fast=False`), as in the original `main.py`. Newer models use the fast one.
 - The original calls each block as `layer(x, attention_mask, position_ids)`, which breaks on `transformers` 4.48 and later. We record the arguments the model itself passes to every block (forward pre-hooks) and replay them. A test checks that this gives the same hidden states as a normal forward on LLaMA, Qwen2 and OPT.
 - Tokenizers load with `AutoTokenizer`. Model blocks are found for LLaMA, Qwen2, Mistral and OPT.
 - The paper says each block's sparsity stays in [S - lambda, S + lambda]. The code (and our port) min-max scales the outlier ratios to a band of width 2 lambda and then shifts the mean to S, so with a skewed LOD some blocks leave that interval. We keep the code's behaviour and log the per-block targets.

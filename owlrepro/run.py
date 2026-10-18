@@ -44,6 +44,7 @@ def parse_args(argv=None):
     p.add_argument("--zs_batch_size", type=int, default=8)
     p.add_argument("--zs_limit", type=int, default=None, help="only for smoke tests")
     p.add_argument("--lod", default="", help="comma list of M values: log LOD of the dense and pruned model")
+    p.add_argument("--save_model", default="", help="also save the pruned checkpoint here (for the original zero-shot scripts)")
     p.add_argument("--out", required=True)
     p.add_argument("--overwrite", action="store_true")
     return p.parse_args(argv)
@@ -95,7 +96,7 @@ def main(argv=None) -> dict | None:
         result["score_means_dense"] = dense["means"]
 
     if args.method != "dense":
-        result["prune"] = prune(model, calib, args.method, args.alloc, args.sparsity, args.M, args.lam)
+        result["prune"] = prune(model, calib, args.method, args.alloc, args.sparsity, args.M, args.lam, args.seed)
     result["sparsity"] = total_sparsity(model)
     result["block_sparsity"] = block_sparsity(model)
 
@@ -117,6 +118,11 @@ def main(argv=None) -> dict | None:
         tasks = ZEROSHOT_TASKS if args.zeroshot == "all" else args.zeroshot.split(",")
         result["zeroshot"] = zeroshot(model, tok, tasks, args.zs_batch_size, args.zs_limit)
         print(f"zero-shot mean acc {result['zeroshot']['mean_acc']}")
+
+    if args.save_model:
+        model.save_pretrained(args.save_model)
+        tok.save_pretrained(args.save_model)
+        result["saved_model"] = args.save_model
 
     result["total_seconds"] = time.time() - t0
     if torch.cuda.is_available():
