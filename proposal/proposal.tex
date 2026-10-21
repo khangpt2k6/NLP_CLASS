@@ -21,6 +21,7 @@ Outlier Weighed Layerwise Sparsity Still Helps Small Modern LLMs}
 \author{Tuan Khang Phan \and Xuan Gia Han Nguyen \\
   University of South Florida}
 
+\raggedbottom
 \begin{document}
 \maketitle
 
@@ -56,8 +57,6 @@ C2 was only tested on LLaMA-1 (7B to 65B), trained on at most 1.4T tokens. Moder
 
 \paragraph{E3: Hyperparameter transfer.} A weak result could just mean bad settings. We run the paper's grid ($M \in \{3,5,7,10\}$, $\lambda \in \{0.02,0.05,0.08,0.1,0.2\}$) on Qwen2.5-1.5B and Llama-3.2-1B at 70\% with Wanda, select on the C4 validation shard (disjoint from the calibration shard), apply the choice to the whole family, and report default and tuned OWL.
 
-\paragraph{E4 (optional): Calibration language.} We calibrate Qwen2.5-1.5B and 7B on Vietnamese Wikipedia instead of C4 \citep{kurz2026limitations} and compare LOD profiles and English and Vietnamese perplexity.
-
 \section{Resources}
 
 No paid inference API is needed: all models are open-weight on Hugging Face.
@@ -75,9 +74,8 @@ R3 & LLaMA-7B & 6 & 3 \\
 R4, E2 & 10 dense models & 10 & 1 \\
 E1 & 7 Qwen2.5 / Llama-3 & 113 & 15 \\
 E3 & 2 small models & 40 & 2 \\
-E4 & Qwen2.5-1.5B/7B & 16 & 2 \\
 \midrule
-Total & & 228 & 28 \\
+Total & & 212 & 26 \\
 \bottomrule
 \end{tabular}
 \caption{Planned runs (pruning plus evaluation, excluding dense baselines) and estimated A100 hours.}
@@ -86,10 +84,11 @@ Total & & 228 & 28 \\
 
 \paragraph{Memory.} A 7B model peaks at about 18\,GB in fp16 (13.5\,GB of weights plus one block's calibration activations), so 7B and 8B models need a 24\,GB GPU, LLaMA-13B about 31\,GB, and models up to 3B fit in 16\,GB.
 
-\paragraph{Compute.} From the paper's timings (266\,s for SparseGPT on 7B, under 1\,s for the Wanda metric), Table~\ref{tab:budget} estimates 28 A100 hours. We budget 60 for zero-shot evaluation and reruns. We use USF's GAIVI cluster (15 A100, 6 H100, 10 L40S), free with a supervisor's approval.
+\paragraph{Compute.} From the paper's timings (266\,s for SparseGPT on 7B, under 1\,s for the Wanda metric), Table~\ref{tab:budget} estimates 26 A100 hours. We budget 60 for zero-shot evaluation and reruns. We use USF's GAIVI cluster (15 A100, 6 H100, 10 L40S), free with a supervisor's approval.
 
 \paragraph{Colab Pro.} Both authors have Google Colab Pro (100 compute units a month each, A100 40\,GB and L4 GPUs), worth 13 to 37 A100 hours a month at 5 to 15 units per hour. It is available now and fits every model up to 13B. Kaggle, Modal credit or 60 rented hours (under \$110) are backups.
 
+\clearpage
 \bibliography{references}
 
 \end{document}
