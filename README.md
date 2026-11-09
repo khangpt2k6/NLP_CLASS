@@ -7,6 +7,7 @@ Authors: Tuan Khang Phan, Xuan Gia Han Nguyen (University of South Florida).
 ## Files
 - [proposal/ProjectProposal_TKP-XGHN.pdf](proposal/ProjectProposal_TKP-XGHN.pdf): project proposal (ACL template, 2 pages + references)
 - [owlrepro/](owlrepro/): our port of OWL, Wanda, SparseGPT and magnitude pruning
+- [notebooks/run_all.ipynb](notebooks/run_all.ipynb): runs every experiment on one local GPU (Anaconda) and shows each result next to the paper
 - [scripts/make_jobs.py](scripts/make_jobs.py): writes the job lists in [experiments/](experiments/)
 - [slurm/run_array.sbatch](slurm/run_array.sbatch): runs a job list as a SLURM array on GAIVI
 - [scripts/collect.py](scripts/collect.py): gathers `results/*/*.json` into `results/summary.csv`

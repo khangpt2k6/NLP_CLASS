@@ -25,3 +25,4 @@ logs/
 .hf_cache/
 *.tmp
 results/smoke/
+ckpt/
