@@ -5,10 +5,14 @@ Usage: python presentation/build_deck.py <template.pptx> <out.pptx>
 The template supplies the background, the purple swirl art, the embedded fonts
 (Garet, Archivo Black) and the title / contents / Q&A slides. Every content
 slide is rebuilt here. Paper numbers come from Yin et al. (ICML 2024),
-Tables 3, 4 and 8. Our own GPU numbers are left as [__].
+Tables 3, 4 and 8. Our own numbers are read from results/ when the result
+files exist, and are left as [__] when they do not, so rebuilding after new
+runs fills the deck in.
 """
 import copy
+import glob
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -16,7 +20,7 @@ from PIL import Image
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
-from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION, XL_LEGEND_POSITION, XL_MARKER_STYLE
+from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION, XL_LEGEND_POSITION, XL_MARKER_STYLE, XL_TICK_LABEL_POSITION
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -37,6 +41,11 @@ SLATE = "8A8696"
 RED = "D6336C"
 
 ASSETS = Path(__file__).resolve().parent / "assets"
+RESULTS = Path(__file__).resolve().parent.parent / "results"
+PENDING = "[__]"
+# label on the slide, file prefix in results/e1 and results/e2
+NEW_MODELS = [("Qwen 0.5B", "qwen2.5-0.5b"), ("Qwen 1.5B", "qwen2.5-1.5b"), ("Qwen 3B", "qwen2.5-3b"), ("Qwen 7B", "qwen2.5-7b"),
+              ("Llama 1B", "llama3.2-1b"), ("Llama 3B", "llama3.2-3b"), ("Llama 8B", "llama3.1-8b")]
 ALT = {"usf.png": "University of South Florida logo", "usf_box.png": "USF logo", "meta.png": "Meta logo", "qwen.png": "Qwen logo",
        "huggingface.png": "Hugging Face logo", "pytorch.png": "PyTorch logo", "colab.png": "Google Colab logo", "kaggle.png": "Kaggle logo",
        "nvidia.png": "NVIDIA logo", "github.png": "GitHub logo", "qr_repo.png": "QR code for the project repository",
@@ -49,6 +58,64 @@ R_EMBED = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}
 
 def rgb(h):
     return RGBColor.from_string(h)
+
+
+# ---------------------------------------------------------------- our results
+def load(rel):
+    """A result file under results/, or None if that job has not run yet."""
+    path = RESULTS / rel
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+def ppl(rel):
+    r = load(rel)
+    return r["ppl"].get("wikitext2") if r else None
+
+
+def zs_acc(rel):
+    """Mean zero-shot accuracy in percent."""
+    r = load(rel)
+    v = ((r or {}).get("zeroshot") or {}).get("mean_acc")
+    return None if v is None else (v * 100 if v <= 1 else v)
+
+
+def num(v, fmt="{:.2f}"):
+    return PENDING if v is None else fmt.format(v)
+
+
+def spearman(x, y):
+    def ranks(v):
+        order = sorted(range(len(v)), key=lambda i: v[i])
+        r = [0.0] * len(v)
+        for k, i in enumerate(order):
+            r[i] = float(k)
+        return r
+    a, b = ranks(x), ranks(y)
+    ma, mb = sum(a) / len(a), sum(b) / len(b)
+    cov = sum((p - ma) * (q - mb) for p, q in zip(a, b))
+    return cov / math.sqrt(sum((p - ma) ** 2 for p in a) * sum((q - mb) ** 2 for q in b))
+
+
+def e1_rows():
+    """Per new model: perplexities at 70% and dL = log PPL(uniform) - log PPL(OWL), for the models that have run."""
+    out = []
+    for label, stem in NEW_MODELS:
+        r = {"label": label, "stem": stem, "dense": ppl(f"e1/{stem}_dense.json")}
+        for m in ("wanda", "sparsegpt"):
+            uni, owl = ppl(f"e1/{stem}_{m}_uniform_s70.json"), ppl(f"e1/{stem}_{m}_owl_s70_M5_l0.08.json")
+            r[m] = (uni, owl, math.log(uni) - math.log(owl) if uni and owl else None)
+        dense_lod = load(f"e2/{stem}_dense.json")
+        r["lod_u"] = dense_lod["lod_dense_summary"]["5.0"]["u"] if dense_lod else None
+        if r["wanda"][2] is not None and r["sparsegpt"][2] is not None:
+            out.append(r)
+    return out
+
+
+def done_runs():
+    """Number of finished runs and their total GPU hours (the smoke tests do not count)."""
+    secs = [json.loads(Path(p).read_text())["total_seconds"] for p in glob.glob(str(RESULTS / "*" / "*.json"))
+            if Path(p).parent.name != "smoke"]
+    return len(secs), sum(secs) / 3600
 
 
 # ---------------------------------------------------------------- text
@@ -473,18 +540,27 @@ def build(template, out):
     ch.value_axis.major_unit = 30
     P = {"align": "r"}
     O = {"align": "r", "color": VIOLET, "bold": True}
+    r1 = {"dense": ppl("r1/llama7b_dense.json"), "wanda": ppl("r1/llama7b_wanda_uniform_s70.json"),
+          "wanda_owl": ppl("r1/llama7b_wanda_owl_s70_M5_l0.08.json"), "sparsegpt": ppl("r1/llama7b_sparsegpt_uniform_s70.json"),
+          "sparsegpt_owl": ppl("r1/llama7b_sparsegpt_owl_s70_M5_l0.08.json")}
+    if all(v is not None for v in r1.values()):
+        r1_note = (f"Our numbers on LLaMA-7B: dense {r1['dense']:.2f}, Wanda {r1['wanda']:.2f}, OWL plus Wanda {r1['wanda_owl']:.2f}, "
+                   f"SparseGPT {r1['sparsegpt']:.2f}, OWL plus SparseGPT {r1['sparsegpt_owl']:.2f}.")
+    else:
+        r1_note = ("[Fill in before the talk: our dense perplexity is __, Wanda __, OWL plus Wanda __, and whether each case moves "
+                   "in the paper's direction. The three paper models have not run yet.]")
     rows = [["LLaMA-7B", ("Paper", P), ("Ours", P)],
-            ["Dense", ("5.68", P), ("[__]", O)],
-            ["Wanda", ("85.77", P), ("[__]", O)],
-            ["OWL + Wanda", ("24.55", P), ("[__]", O)],
-            ["SparseGPT", ("26.30", P), ("[__]", O)],
-            ["OWL + SparseGPT", ("19.49", P), ("[__]", O)]]
+            ["Dense", ("5.68", P), (num(r1["dense"]), O)],
+            ["Wanda", ("85.77", P), (num(r1["wanda"]), O)],
+            ["OWL + Wanda", ("24.55", P), (num(r1["wanda_owl"]), O)],
+            ["SparseGPT", ("26.30", P), (num(r1["sparsegpt"]), O)],
+            ["OWL + SparseGPT", ("19.49", P), (num(r1["sparsegpt_owl"]), O)]]
     add_table(s, 12.85, 4.0, [3.35, 1.4, 1.4], rows, row_h=0.72, size=22, head_size=22, name="Table: paper vs ours")
     txt(s, 12.85, 8.55, 6.15, 1.7, ["OWL helps in 5 of 6 cases. With SparseGPT on OPT-6.7B it gets worse, and we check that too."], size=24)
     txt(s, 1.12, 10.4, 14, 0.4, "WikiText-2 perplexity, lower is better. Bars show the paper's numbers (Yin et al. 2024, Table 3).", size=20, color=GRAY)
     notes(s, "[0:50] This is the main table we target. Bars are the paper's numbers. Dark bars are OWL, light bars are uniform. "
              "For LLaMA-7B and 13B, OWL helps both methods. For OPT with SparseGPT the OWL bar is slightly higher, and we want to see that too. "
-             "[Fill in before the talk: our dense perplexity is __, Wanda __, OWL plus Wanda __, and whether each case moves in the paper's direction.]")
+             + r1_note)
 
     # ---- 8 R2-R4
     s = content("2. Can we reproduce it?", "R2 to R4: sweep, zero-shot, outliers")
@@ -500,11 +576,11 @@ def build(template, out):
     ch.value_axis.tick_labels.number_format_is_linked = False
     txt(s, 11.75, 3.95, 7.2, 0.5, "R3: mean zero-shot accuracy, 7 tasks", size=24, bold=True)
     rows = [["LLaMA-7B, 70%", ("Paper", P), ("Ours", P)],
-            ["Dense", ("62.40", P), ("[__]", O)],
-            ["Wanda", ("39.39", P), ("[__]", O)],
-            ["OWL + Wanda", ("46.47", P), ("[__]", O)],
-            ["SparseGPT", ("44.93", P), ("[__]", O)],
-            ["OWL + SparseGPT", ("48.03", P), ("[__]", O)]]
+            ["Dense", ("62.40", P), (num(zs_acc("r1/llama7b_dense.json")), O)],
+            ["Wanda", ("39.39", P), (num(zs_acc("r1/llama7b_wanda_uniform_s70.json")), O)],
+            ["OWL + Wanda", ("46.47", P), (num(zs_acc("r1/llama7b_wanda_owl_s70_M5_l0.08.json")), O)],
+            ["SparseGPT", ("44.93", P), (num(zs_acc("r1/llama7b_sparsegpt_uniform_s70.json")), O)],
+            ["OWL + SparseGPT", ("48.03", P), (num(zs_acc("r1/llama7b_sparsegpt_owl_s70_M5_l0.08.json")), O)]]
     add_table(s, 11.75, 4.5, [4.2, 1.5, 1.5], rows, row_h=0.6, size=20, head_size=20, name="Table: zero-shot paper vs ours")
     box(s, 11.75, 8.4, 7.2, 1.85, fill=TINT, radius=0.08)
     txt(s, 12.05, 8.5, 6.7, 1.7, [[("R4: ", {"bold": True}), "outliers per block before and after pruning. We expect the same uneven shape to survive pruning. Ours: [__]"]],
@@ -515,56 +591,75 @@ def build(template, out):
              "distribution before and after pruning. [Fill in our numbers before the talk.]")
 
     # ---- 9 status
-    s = content("2. Can we reproduce it?", "Where we are: code runs, GPU runs next")
+    n_done, gpu_hours = done_runs()
+    rows_e1 = e1_rows()
+    paper_done = r1["dense"] is not None
+    example = load("e1/qwen2.5-3b_wanda_owl_s70_M5_l0.08.json")
+    smoke = example or load("smoke/smollm_wanda_owl_50.json")
+    env = smoke["env"]
+    if rows_e1 and not paper_done:
+        headline = "Status: extension ran, paper models next"
+    elif rows_e1:
+        headline = "Status: paper models and extension ran"
+    else:
+        headline = "Where we are: code runs, GPU runs next"
+    s = content("2. Can we reproduce it?", headline)
     status = [(True, "Our port of OWL, Wanda, SparseGPT and magnitude pruning"),
-              (True, "28 unit tests pass, CPU smoke run works end to end"),
-              (True, "Job lists written for every experiment"),
-              (False, "Next: dense LLaMA-7B check (5.68), then R1 to R4 on GPU")]
+              (True, "36 unit tests pass, CPU smoke run works end to end"),
+              (True, f"{n_done} GPU runs done: E1 at 70% and E2 on {len(rows_e1)} models" if n_done else "Job lists written for every experiment"),
+              (paper_done, "LLaMA-7B dense check and R1 runs done" if paper_done else "Next: LLaMA-7B, OPT-6.7B and LLaMA-13B for R1 to R4")]
     for i, (done, line) in enumerate(status):
         y = 4.0 + i * 0.86
         box(s, 1.12, y + 0.08, 0.56, 0.56, shape=MSO_SHAPE.OVAL, fill=VIOLET if done else None, line=None if done else VIOLET,
             paras="✓" if done else "", font="Arial", size=22, color="FFFFFF", bold=True, inset=0)
         txt(s, 1.95, y, 6.9, 0.8, line, size=24, anchor="m", bold=not done)
     pic_fit(s, "pytorch.png", 1.12, 9.72, 0.5, 0.56)
-    txt(s, 1.75, 9.72, 2.4, 0.56, "PyTorch 2.11", size=22, anchor="m")
+    txt(s, 1.75, 9.72, 2.4, 0.56, "PyTorch " + ".".join(env["torch"].split(".")[:2]), size=22, anchor="m")
     pic_fit(s, "huggingface.png", 4.25, 9.72, 0.6, 0.56)
-    txt(s, 4.98, 9.72, 3.6, 0.56, "Transformers 5.5", size=22, anchor="m")
+    txt(s, 4.98, 9.72, 3.6, 0.56, "Transformers " + ".".join(env["transformers"].split(".")[:2]), size=22, anchor="m")
     box(s, 1.12, 7.5, 7.75, 2.0, fill=TINT, radius=0.07)
     txt(s, 1.42, 7.5, 7.2, 2.0, [[("Found while porting: ", {"bold": True}),
         "the released code scales block sparsity into a band 2λ wide, then shifts the mean to S. Some blocks leave the paper's stated range S ± λ."]],
         size=22, anchor="m")
-    smoke = json.loads((Path(__file__).resolve().parent.parent / "results/smoke/smollm_wanda_owl_50.json").read_text())
     lod = [round(v, 3) for v in smoke["prune"]["lod"]]
     target = [round(v, 4) for v in smoke["prune"]["block_target"]]
     S, lam = smoke["args"]["sparsity"], smoke["args"]["lam"]
     blocks = [str(i + 1) for i in range(len(lod))]
     txt(s, 9.6, 3.95, 9.3, 0.45, "Outliers per block (LOD, %)", size=22, bold=True)
     ch = add_chart(s, XL_CHART_TYPE.COLUMN_CLUSTERED, 9.4, 4.35, 9.6, 2.45, blocks, [("LOD (%)", lod)], [VIOLET],
-                   "Chart: outlier ratio per block, smoke run", legend=None, fsize=18, gap=35)
+                   "Chart: outlier ratio per block", legend=None, fsize=18, gap=35)
     label_skip(ch, 5)
     ch.value_axis.major_unit = 1
     txt(s, 9.6, 6.9, 9.3, 0.45, "OWL sparsity target per block", size=22, bold=True)
     ch = add_chart(s, XL_CHART_TYPE.LINE_MARKERS, 9.4, 7.3, 9.6, 2.75, blocks,
                    [("OWL target (our port)", target), ("S + λ", [S + lam] * len(lod)), ("S − λ", [S - lam] * len(lod))],
-                   [ORANGE, SLATE, SLATE], "Chart: OWL block sparsity target, smoke run", fsize=18)
+                   [ORANGE, SLATE, SLATE], "Chart: OWL block sparsity target", fsize=18)
     for sr in list(ch.plots[0].series)[1:]:
         sr.marker.style = XL_MARKER_STYLE.NONE
         sr.format.line.width = Pt(2.5)
         sr.format.line.dash_style = 4  # dash
     ch.plots[0].series[0].marker.size = 7
-    ch.value_axis.minimum_scale = 0.35
-    ch.value_axis.maximum_scale = 0.65
+    ch.value_axis.minimum_scale = round(S - 0.2, 2)
+    ch.value_axis.maximum_scale = round(S + 0.15, 2)
     ch.value_axis.major_unit = 0.1
     ch.value_axis.tick_labels.number_format = "0%"
     ch.value_axis.tick_labels.number_format_is_linked = False
     label_skip(ch, 5)
-    txt(s, 9.6, 10.1, 9.3, 0.7, "SmolLM2-135M, 50% target, M = 5, λ = 0.08. CPU smoke test with 4 calibration samples, not a result.",
-        size=18, color=GRAY)
-    notes(s, "[0:40] Where we are. We ported OWL, Wanda, SparseGPT and magnitude pruning to current libraries, with 28 unit tests, and the full pipeline "
-             "runs end to end on a tiny model on CPU. The charts are from that smoke run: blocks with more outliers get a lower sparsity target. "
-             "It already showed one difference. The released code scales block sparsity into a band of width two lambda and then shifts the mean, "
-             "so some blocks fall outside the range the paper states. Here the last block gets 39 percent, below the 42 percent floor. "
-             "We keep the code's behaviour and report it. GPU runs are next.")
+    low = min(range(len(target)), key=lambda i: target[i])
+    if example:
+        caption = f"Qwen2.5-3B with Wanda, {S:.0%} target, M = 5, λ = {lam}. Our run on a Colab L4."
+        source = "The charts are from our Qwen2.5-3B run"
+    else:
+        caption = "SmolLM2-135M, 50% target, M = 5, λ = 0.08. CPU smoke test with 4 calibration samples, not a result."
+        source = "The charts are from a CPU smoke run on a tiny model"
+    txt(s, 9.6, 10.1, 9.3, 0.7, caption, size=18, color=GRAY)
+    notes(s, "[0:25] Where we are. We ported OWL, Wanda, SparseGPT and magnitude pruning to current libraries, with 36 unit tests. "
+             + (f"{n_done} GPU runs are done, all on the extension models. " if n_done and not paper_done else "")
+             + f"{source}: blocks with more outliers get a lower sparsity target. "
+             "It showed one difference. The released code scales block sparsity into a band of width two lambda and then shifts the mean, "
+             f"so some blocks fall outside the range the paper states. Here block {low + 1} gets {target[low]:.0%}, below the {S - lam:.0%} floor. "
+             "We keep the code's behaviour and report it."
+             + ("" if paper_done else " The three paper models are next."))
 
     # ---- 10 extension motivation
     s = content("3. Does it hold on new LLMs?", "The paper only tested LLaMA-1, 7B and up")
@@ -628,10 +723,60 @@ def build(template, out):
                     box(s, x + 0.4 + c * 0.6, vy - 0.08 + r * 0.31, 0.52, 0.25, fill=ORANGE if default else LVIOLET)
             txt(s, x + 3.5, vy - 0.05, 1.95, 1.2, ["4 x 5 grid", "orange: paper default"], size=18, color=GRAY, anchor="m")
         txt(s, x + 0.35, 6.95, 4.95, 3.2, body_lines, size=24, color="222222", after=12)
-    notes(s, "[0:50] Three experiments. E1 prunes seven models from two families at three sparsities, uniform versus OWL, and reports the gain in log "
+    notes(s, "[0:40] Three experiments. E1 prunes seven models from two families, uniform versus OWL, and reports the gain in log "
              "perplexity so small and large models are comparable. As a control we shuffle OWL's block sparsities: same values, wrong blocks. "
-             "If shuffled OWL does as well, the outlier story is not the reason. E2 asks whether the shape of the outlier distribution predicts the gain "
-             "across all ten models. E3 reruns the paper's hyperparameter grid on two small models, so a weak result is not just bad settings.")
+             "E2 asks whether the shape of the outlier distribution predicts the gain. "
+             "E3 reruns the paper's hyperparameter grid on two small models, so a weak result is not just bad settings.")
+
+    # ---- 12 extension results (only once the E1 runs exist)
+    if rows_e1:
+        helped = [r for r in rows_e1 if r["wanda"][2] > 0]
+        hurt = [r["label"] for r in rows_e1 if r["wanda"][2] <= 0]
+        s = content("3. Does it hold on new LLMs?", f"E1 at 70%: OWL helps {len(helped)} of {len(rows_e1)} models")
+        txt(s, 1.12, 3.95, 10.4, 0.5, "Gain from OWL: ΔL = log PPL(uniform) − log PPL(OWL)", size=24, bold=True)
+        ch = add_chart(s, XL_CHART_TYPE.COLUMN_CLUSTERED, 0.95, 4.45, 10.7, 5.85, [r["label"] for r in rows_e1],
+                       [("Wanda", [round(r["wanda"][2], 2) for r in rows_e1]), ("SparseGPT", [round(r["sparsegpt"][2], 2) for r in rows_e1])],
+                       [VIOLET, ORANGE], "Chart: OWL gain in log perplexity at 70% sparsity", labels="+0.00;−0.00", fsize=18, gap=60, overlap=-5)
+        ch.category_axis.tick_label_position = XL_TICK_LABEL_POSITION.LOW
+        top = max(max(r["wanda"][2], r["sparsegpt"][2]) for r in rows_e1)
+        bottom = min(min(r["wanda"][2], r["sparsegpt"][2]) for r in rows_e1)
+        ch.value_axis.maximum_scale = math.ceil((top + 0.15) / 0.4) * 0.4
+        ch.value_axis.minimum_scale = math.floor((bottom - 0.1) / 0.4) * 0.4
+        ch.value_axis.major_unit = 0.4
+        ch.value_axis.tick_labels.number_format = "0.0"
+        ch.value_axis.tick_labels.number_format_is_linked = False
+
+        def owl_cell(pair):
+            return (f"{pair[1]:.1f}", {"align": "r", "bold": True, "color": VIOLET if pair[2] > 0 else RED})
+        txt(s, 12.0, 3.95, 6.95, 0.5, "WikiText-2 perplexity at 70%", size=24, bold=True)
+        rows = [["Model", ("Wanda", P), ("+ OWL", P), ("SGPT", P), ("+ OWL", P)]]
+        for r in rows_e1:
+            rows.append([r["label"], (f"{r['wanda'][0]:.1f}", P), owl_cell(r["wanda"]), (f"{r['sparsegpt'][0]:.1f}", P), owl_cell(r["sparsegpt"])])
+        add_table(s, 12.0, 4.5, [2.35, 1.2, 1.15, 1.1, 1.15], rows, row_h=0.47, size=18, head_size=18, name="Table: perplexity at 70%, uniform vs OWL")
+        if len(hurt) == 2:
+            finding = [f"OWL hurts {' and '.join(hurt)}, the smallest of each family. The gain does not grow as models shrink."]
+        else:
+            finding = [f"With Wanda, OWL helps {len(helped)} of {len(rows_e1)} models."]
+        lod = [r for r in rows_e1 if r["lod_u"] is not None]
+        rho_note = ""
+        if len(lod) >= 4:
+            rho_w = spearman([r["lod_u"] for r in lod], [r["wanda"][2] for r in lod])
+            rho_s = spearman([r["lod_u"] for r in lod], [r["sparsegpt"][2] for r in lod])
+            finding.append([("E2: ", {"bold": True}), f"a more U-shaped LOD goes with a larger Wanda gain, ρ = {rho_w:+.2f} (n = {len(lod)}). "
+                            f"No signal with SparseGPT ({rho_s:+.2f})."])
+            rho_note = (f" For E2, the Spearman correlation between how U-shaped the dense outlier distribution is and the Wanda gain is {rho_w:+.2f}. "
+                        f"With SparseGPT it is {rho_s:+.2f}, so no signal. That is only {len(lod)} models, so it is exploratory.")
+        box(s, 12.0, 8.45, 6.95, 1.85, fill=TINT, radius=0.07)
+        txt(s, 12.25, 8.45, 6.5, 1.85, finding, size=19, anchor="m", after=6, ls=1.15)
+        txt(s, 1.12, 10.4, 17, 0.4, "Our runs, one calibration seed, M = 5, λ = 0.08. Positive ΔL means OWL helps. In the table, purple beats uniform and red is worse.",
+            size=20, color=GRAY)
+        best = max(rows_e1, key=lambda r: r["wanda"][2])
+        notes(s, f"[0:45] Our first extension result, at 70 percent sparsity. Bars above zero mean OWL beats uniform. With Wanda, OWL helps {len(helped)} of "
+                 f"{len(rows_e1)} models. The largest gain is on {best['label']}, where perplexity drops from {best['wanda'][0]:.0f} to {best['wanda'][1]:.0f}. "
+                 + (f"But OWL hurts {' and '.join(hurt)}, the smallest model of each family. " if len(hurt) == 2 else "")
+                 + "So the gain does not grow as models shrink, which is the opposite of the paper's trend on LLaMA-1. "
+                 "With SparseGPT the effect is smaller and mixed." + rho_note
+                 + " These are single-seed runs, so the small differences may be noise.")
 
     # ---- 12 resources
     s = content("4. What do we need?", "212 runs, about 26 A100 hours, no paid API")
@@ -645,7 +790,8 @@ def build(template, out):
     txt(s, 1.7, 8.47, 2.6, 0.4, "Reproduction", size=18)
     box(s, 4.0, 8.52, 0.3, 0.3, fill=ORANGE)
     txt(s, 4.4, 8.47, 2.6, 0.4, "Extension", size=18)
-    stats = [("212", "pruning runs"), ("26 h", "estimated, 60 h budgeted"), ("$0", "API cost, open weights")]
+    done_card = (str(n_done), f"runs done, {gpu_hours:.1f} GPU hours so far") if n_done else ("26 h", "estimated, 60 h budgeted")
+    stats = [("212", "pruning runs planned"), done_card, ("$0", "API cost, open weights")]
     for i, (big, small) in enumerate(stats):
         x = 9.8 + i * 3.08
         box(s, x, 4.0, 2.88, 1.85, fill=TINT, radius=0.08)
@@ -653,7 +799,8 @@ def build(template, out):
         txt(s, x + 0.15, 5.0, 2.58, 0.8, small, size=18, align="c", color="222222", ls=1.1)
     pic_fit(s, "huggingface.png", 9.8 + 2 * 3.08 + 0.2, 4.22, 0.6, 0.6)
     gpus = [("usf_box.png", "USF GAIVI cluster", "A100, H100 and L40S, free with a supervisor"),
-            ("colab.png", "Colab Pro, both accounts", "13 to 37 A100 hours a month"),
+            ("colab.png", "Colab Pro", "one L4 (22 GB) ran the seven-model extension") if n_done
+            else ("colab.png", "Colab Pro, both accounts", "13 to 37 A100 hours a month"),
             ("kaggle.png", "Backup", "Kaggle, Modal credit or a rented GPU (under $110)"),
             ("nvidia.png", "GPU memory", "24 GB for 7B and 8B, 31 GB for 13B")]
     for i, (logo, head, desc) in enumerate(gpus):
@@ -661,14 +808,18 @@ def build(template, out):
         pic_fit(s, logo, 9.8, y + 0.05, 0.62, 0.45)
         txt(s, 10.62, y, 8.3, 0.55, [[(head + "  ", {"bold": True}), desc]], size=20, anchor="m")
     steps = ["Dense check: 5.68", "R1 to R4", "E1 to E3", "Report: Dec 4"]
+    if rows_e1 and not paper_done:
+        steps = ["E1 70% + E2: done", "R1 to R4", "E1 rest, E3", "Report: Dec 4"]
     for i, label in enumerate(steps):
         x = 1.12 + i * 4.55
         box(s, x, 9.2, 3.75, 0.95, paras=label, font="Archivo Black", size=24)
         if i < 3:
             arrow(s, x + 3.87, 9.675, x + 4.43, 9.675)
-    notes(s, "[0:45] Resources. All models are open weights, so no paid API. The plan is 212 runs and about 26 A100 hours, and we budget 60 for zero-shot "
-             "evaluation and reruns. Most of it is E1. A 7B model needs a 24 GB GPU. We use USF's GAIVI cluster and Colab Pro on both accounts, with Kaggle "
-             "or a rented GPU as backup. Next is the dense baseline check, then R1 to R4, then the extension. The report is due December 4.")
+    notes(s, "[0:35] Resources. All models are open weights, so no paid API. The plan is 212 runs and about 26 A100 hours. "
+             + (f"So far {n_done} runs are done in {gpu_hours:.1f} GPU hours on a Colab L4. " if n_done else "")
+             + "A 7B model needs a 24 GB GPU and LLaMA-13B about 31. We use Colab Pro and USF's GAIVI cluster, with Kaggle or a rented GPU as backup. "
+             + ("" if paper_done else "Next are the three paper models for R1 to R4, then the rest of the extension. ")
+             + "The report is due December 4.")
 
     # ---- 13 Q&A
     pic(qa, "qr_repo.png", 1.12, 7.35, h=1.9)
@@ -676,7 +827,7 @@ def build(template, out):
     txt(qa, 3.3, 8.4, 8, 0.6, "Code, proposal and slides are in the repo", size=24, color=GRAY, anchor="m")
     pic(qa, "github.png", 1.12, 9.6, h=0.5)
     txt(qa, 1.8, 9.6, 12, 0.5, "github.com/khangpt2k6/NLP_CLASS", size=26, color=GRAY, anchor="m")
-    notes(qa, "[0:05] Thank you. Questions? Total target: 7:40, which leaves 20 seconds of slack under the 8 minute limit.")
+    notes(qa, "[0:05] Thank you. Questions? Total target: 7:50, which leaves 10 seconds of slack under the 8 minute limit.")
 
     # ---- drop unused template slides, put Q&A last
     lst = prs.slides._sldIdLst
