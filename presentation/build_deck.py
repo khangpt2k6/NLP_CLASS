@@ -43,6 +43,12 @@ RED = "D6336C"
 ASSETS = Path(__file__).resolve().parent / "assets"
 RESULTS = Path(__file__).resolve().parent.parent / "results"
 PENDING = "[__]"
+# R1 (Table 3 of the paper): row label, result file suffix, and per model the paper's numbers and the OWL M it used
+R1_ROWS = [("Dense", "dense"), ("Wanda", "wanda_uniform_s70"), ("OWL + Wanda", "wanda_owl_s70_M{M}_l0.08"),
+           ("SparseGPT", "sparsegpt_uniform_s70"), ("OWL + SparseGPT", "sparsegpt_owl_s70_M{M}_l0.08")]
+R1_MODELS = [("LLaMA-7B", "7B", "llama7b", 5, [5.68, 85.77, 24.55, 26.30, 19.49]),
+             ("LLaMA-13B", "13B", "llama13b", 7, [5.09, 55.90, 17.17, 19.24, 14.55]),
+             ("OPT-6.7B", "OPT", "opt6.7b", 10, [10.86, 162.92, 40.22, 20.29, 22.48])]
 # label on the slide, file prefix in results/e1 and results/e2
 NEW_MODELS = [("Qwen 0.5B", "qwen2.5-0.5b"), ("Qwen 1.5B", "qwen2.5-1.5b"), ("Qwen 3B", "qwen2.5-3b"), ("Qwen 7B", "qwen2.5-7b"),
               ("Llama 1B", "llama3.2-1b"), ("Llama 3B", "llama3.2-3b"), ("Llama 8B", "llama3.1-8b")]
@@ -106,6 +112,7 @@ def e1_rows():
             r[m] = (uni, owl, math.log(uni) - math.log(owl) if uni and owl else None)
         dense_lod = load(f"e2/{stem}_dense.json")
         r["lod_u"] = dense_lod["lod_dense_summary"]["5.0"]["u"] if dense_lod else None
+        r["lod_cv"] = dense_lod["lod_dense_summary"]["5.0"]["cv"] if dense_lod else None
         if r["wanda"][2] is not None and r["sparsegpt"][2] is not None:
             out.append(r)
     return out
@@ -540,38 +547,73 @@ def build(template, out):
     ch.value_axis.major_unit = 30
     P = {"align": "r"}
     O = {"align": "r", "color": VIOLET, "bold": True}
-    r1 = {"dense": ppl("r1/llama7b_dense.json"), "wanda": ppl("r1/llama7b_wanda_uniform_s70.json"),
-          "wanda_owl": ppl("r1/llama7b_wanda_owl_s70_M5_l0.08.json"), "sparsegpt": ppl("r1/llama7b_sparsegpt_uniform_s70.json"),
-          "sparsegpt_owl": ppl("r1/llama7b_sparsegpt_owl_s70_M5_l0.08.json")}
-    if all(v is not None for v in r1.values()):
-        r1_note = (f"Our numbers on LLaMA-7B: dense {r1['dense']:.2f}, Wanda {r1['wanda']:.2f}, OWL plus Wanda {r1['wanda_owl']:.2f}, "
-                   f"SparseGPT {r1['sparsegpt']:.2f}, OWL plus SparseGPT {r1['sparsegpt_owl']:.2f}.")
-    else:
+    # our numbers per model, in the order of R1_ROWS (None where a job has not run)
+    ours = {stem: [ppl(f"r1/{stem}_{suffix.format(M=M)}.json") for _, suffix in R1_ROWS] for _, _, stem, M, _ in R1_MODELS}
+    r1 = dict(zip(("dense", "wanda", "wanda_owl", "sparsegpt", "sparsegpt_owl"), ours["llama7b"]))
+    cell = lambda v: PENDING if v is None else (f"{v:.2f}" if v < 100 else f"{v:.1f}")
+    rows = [["Ours"] + [(short, P) for _, short, _, _, _ in R1_MODELS]]
+    for i, (label, _) in enumerate(R1_ROWS):
+        rows.append([label] + [(cell(ours[stem][i]), O) for _, _, stem, _, _ in R1_MODELS])
+    add_table(s, 12.85, 4.0, [2.75, 1.13, 1.13, 1.14], rows, row_h=0.72, size=20, head_size=22, name="Table: our perplexity at 70% sparsity")
+    # the six uniform vs OWL cases, and how far our numbers are from the paper's
+    cases = [(name, method, ours[stem][u], ours[stem][o]) for name, _, stem, _, _ in R1_MODELS
+             for method, u, o in (("Wanda", 1, 2), ("SparseGPT", 3, 4)) if ours[stem][u] is not None and ours[stem][o] is not None]
+    helped = [c for c in cases if c[3] < c[2]]
+    worse = [c for c in cases if c[3] >= c[2]]
+    gaps = [abs(v - ref) / ref for _, _, stem, _, paper in R1_MODELS for v, ref in zip(ours[stem], paper) if v is not None]
+    missing = [name for name, _, stem, _, _ in R1_MODELS if any(v is None for v in ours[stem])]
+    if not cases:
+        r1_text = "OWL helps in 5 of 6 cases. With SparseGPT on OPT-6.7B it gets worse, and we check that too."
         r1_note = ("[Fill in before the talk: our dense perplexity is __, Wanda __, OWL plus Wanda __, and whether each case moves "
                    "in the paper's direction. The three paper models have not run yet.]")
-    rows = [["LLaMA-7B", ("Paper", P), ("Ours", P)],
-            ["Dense", ("5.68", P), (num(r1["dense"]), O)],
-            ["Wanda", ("85.77", P), (num(r1["wanda"]), O)],
-            ["OWL + Wanda", ("24.55", P), (num(r1["wanda_owl"]), O)],
-            ["SparseGPT", ("26.30", P), (num(r1["sparsegpt"]), O)],
-            ["OWL + SparseGPT", ("19.49", P), (num(r1["sparsegpt_owl"]), O)]]
-    add_table(s, 12.85, 4.0, [3.35, 1.4, 1.4], rows, row_h=0.72, size=22, head_size=22, name="Table: paper vs ours")
-    txt(s, 12.85, 8.55, 6.15, 1.7, ["OWL helps in 5 of 6 cases. With SparseGPT on OPT-6.7B it gets worse, and we check that too."], size=24)
-    txt(s, 1.12, 10.4, 14, 0.4, "WikiText-2 perplexity, lower is better. Bars show the paper's numbers (Yin et al. 2024, Table 3).", size=20, color=GRAY)
-    notes(s, "[0:50] This is the main table we target. Bars are the paper's numbers. Dark bars are OWL, light bars are uniform. "
-             "For LLaMA-7B and 13B, OWL helps both methods. For OPT with SparseGPT the OWL bar is slightly higher, and we want to see that too. "
-             + r1_note)
+    else:
+        hurt = " and hurts " + " and ".join(f"{c[1]} on {c[0]}" for c in worse) if worse else ""
+        same = ", as in the paper" if [(c[0], c[1]) for c in worse] == [("OPT-6.7B", "SparseGPT")] else ""
+        r1_text = (f"Ours: OWL helps in {len(helped)} of {len(cases)} cases{hurt}{same}. Every number is within {math.ceil(max(gaps) * 100)}% of the paper's."
+                   + (f" {' and '.join(missing)} not run yet." if missing else ""))
+        r1_note = (f"We reproduce it. Dense LLaMA-7B is {r1['dense']:.2f} against 5.68, Wanda {r1['wanda']:.2f} against 85.77, and OWL plus Wanda "
+                   f"{r1['wanda_owl']:.2f} against 24.55. In our runs OWL helps in {len(helped)} of {len(cases)} cases. "
+                   + "".join(f"With {c[1]} on {c[0]} it gets worse, {c[2]:.2f} to {c[3]:.2f}. " for c in worse)
+                   + (f"That is the same exception the paper reports. " if same else "")
+                   + f"The largest gap to the paper is {math.ceil(max(gaps) * 100)} percent."
+                   + (f" {' and '.join(missing)} had not run when this deck was built." if missing else ""))
+    txt(s, 12.85, 8.5, 6.15, 1.8, [r1_text], size=22)
+    txt(s, 1.12, 10.4, 17, 0.4, "WikiText-2 perplexity, lower is better. Bars show the paper's numbers (Yin et al. 2024, Table 3), the table shows ours.",
+        size=20, color=GRAY)
+    notes(s, "[0:50] This is the main table we target. Bars are the paper's numbers and the table on the right is ours. Dark bars are OWL, "
+             "light bars are uniform. " + r1_note)
 
     # ---- 8 R2-R4
     s = content("2. Can we reproduce it?", "R2 to R4: sweep, zero-shot, outliers")
     txt(s, 1.12, 3.95, 9.5, 0.5, "R2: perplexity vs sparsity, LLaMA-7B + Wanda (log scale)", size=24, bold=True)
-    ch = add_chart(s, XL_CHART_TYPE.LINE_MARKERS, 0.95, 4.45, 10.3, 5.85, ["40%", "50%", "60%", "70%", "80%"],
-                   [("Uniform", [6.38, 7.26, 10.70, 85.77, 3499.88]), ("OWL", [6.39, 7.22, 9.35, 24.54, 1002.87]),
-                    ("OWL-inverse", [6.51, 8.03, 26.05, 822.23, 9616.08]), ("ER", [6.55, 7.74, 12.16, 112.03, 11151.18])],
-                   [SLATE, VIOLET, ORANGE, TEAL], "Chart: Table 8 sparsity sweep")
+    sweep = ["40", "50", "60", "70", "80"]
+    r2_uni = [ppl(f"r2/llama7b_wanda_uniform_s{x}.json") for x in sweep]
+    r2_owl = [ppl(f"r2/llama7b_wanda_owl_s{x}_M5_l0.08.json") for x in sweep]
+    r2_done = all(v is not None for v in r2_uni + r2_owl)
+    series = [("Uniform", [6.38, 7.26, 10.70, 85.77, 3499.88]), ("OWL", [6.39, 7.22, 9.35, 24.54, 1002.87]),
+              ("OWL-inverse", [6.51, 8.03, 26.05, 822.23, 9616.08]), ("ER", [6.55, 7.74, 12.16, 112.03, 11151.18])]
+    colors = [SLATE, VIOLET, ORANGE, TEAL]
+    if r2_done:
+        series += [("Ours: uniform", [round(v, 2) for v in r2_uni]), ("Ours: OWL", [round(v, 2) for v in r2_owl])]
+        colors += [INK, INK]
+    ch = add_chart(s, XL_CHART_TYPE.LINE_MARKERS, 0.95, 4.45, 10.3, 5.85, [x + "%" for x in sweep], series, colors,
+                   "Chart: Table 8 sparsity sweep", fsize=18 if r2_done else 20)
+    for sr, style in zip(list(ch.plots[0].series)[4:], (XL_MARKER_STYLE.CIRCLE, XL_MARKER_STYLE.DIAMOND)):
+        # our runs: hollow markers without a line, drawn around the paper's points
+        sr.format.line.fill.background()
+        sr.marker.style = style
+        sr.marker.size = 17
+        sr.marker.format.fill.background()
+        sr.marker.format.line.color.rgb = rgb(INK)
+        sr.marker.format.line.width = Pt(2.25)
     log_axis(ch, 1, 100000)
-    txt(s, 2.75, 4.85, 5.2, 1.0, [[("At 70%:  ", {"bold": True}), ("uniform 85.77", {"color": "5E5A6B", "bold": True})],
-                                  [("OWL 24.54", {"color": VIOLET, "bold": True})]], size=22, ls=1.25)
+    if r2_done:
+        txt(s, 2.75, 4.8, 6.6, 1.1, [[("At 70%, paper: ", {"bold": True}), "uniform 85.77, OWL 24.54"],
+                                     [("At 70%, ours: ", {"bold": True, "color": VIOLET}),
+                                      (f"uniform {r2_uni[3]:.2f}, OWL {r2_owl[3]:.2f}", {"bold": True, "color": VIOLET})]], size=20, ls=1.3)
+    else:
+        txt(s, 2.75, 4.85, 5.2, 1.0, [[("At 70%:  ", {"bold": True}), ("uniform 85.77", {"color": "5E5A6B", "bold": True})],
+                                      [("OWL 24.54", {"color": VIOLET, "bold": True})]], size=22, ls=1.25)
     ch.value_axis.tick_labels.number_format = "#,##0"
     ch.value_axis.tick_labels.number_format_is_linked = False
     txt(s, 11.75, 3.95, 7.2, 0.5, "R3: mean zero-shot accuracy, 7 tasks", size=24, bold=True)
@@ -583,12 +625,33 @@ def build(template, out):
             ["OWL + SparseGPT", ("48.03", P), (num(zs_acc("r1/llama7b_sparsegpt_owl_s70_M5_l0.08.json")), O)]]
     add_table(s, 11.75, 4.5, [4.2, 1.5, 1.5], rows, row_h=0.6, size=20, head_size=20, name="Table: zero-shot paper vs ours")
     box(s, 11.75, 8.4, 7.2, 1.85, fill=TINT, radius=0.08)
-    txt(s, 12.05, 8.5, 6.7, 1.7, [[("R4: ", {"bold": True}), "outliers per block before and after pruning. We expect the same uneven shape to survive pruning. Ours: [__]"]],
-        size=22, anchor="m")
-    txt(s, 1.12, 10.4, 14, 0.4, "Paper numbers from Yin et al. 2024, Tables 4 and 8. OWL-inverse gives outlier-rich blocks more sparsity.", size=20, color=GRAY)
+    r4 = {m: load(f"r4/llama7b_{m}_uniform_s70_lod.json") for m in ("wanda", "sparsegpt", "magnitude")}
+    r4_note = ""
+    if all(r4.values()):
+        dense_lod = r4["wanda"]["lod_dense"]["5.0"]
+        mean = {m: r["lod_pruned_summary"]["5.0"]["mean"] for m, r in r4.items()}
+        keep = min(spearman(dense_lod, r["lod_pruned"]["5.0"]) for r in r4.values())
+        d_mean = sum(dense_lod) / len(dense_lod)
+        r4_text = (f"mean outlier share per block (M = 5). Dense {d_mean:.2f}%. At 70% sparsity: Wanda {mean['wanda']:.2f}%, "
+                   f"SparseGPT {mean['sparsegpt']:.2f}%, magnitude {mean['magnitude']:.2f}%. The per-block shape survives (ρ ≥ {math.floor(keep * 100) / 100:.2f}).")
+        r4_note = (f" R4, ours: the dense LLaMA-7B has {d_mean:.2f} percent outliers per block on average, {max(dense_lod):.1f} in the early blocks and "
+                   f"{min(dense_lod):.1f} in the late ones. After pruning to 70 percent the shape is the same for all three methods. "
+                   "Magnitude pruning keeps as many outliers as Wanda and SparseGPT by this count, although its perplexity collapses.")
+        size4 = 20
+    else:
+        r4_text = "outliers per block before and after pruning. We expect the same uneven shape to survive pruning. Ours: [__]"
+        size4 = 22
+    txt(s, 12.05, 8.45, 6.7, 1.8, [[("R4: ", {"bold": True}), r4_text]], size=size4, anchor="m")
+    txt(s, 1.12, 10.4, 14, 0.4, "Paper numbers from Yin et al. 2024, Tables 4 and 8. OWL-inverse gives outlier-rich blocks more sparsity."
+        + (" Rings are our runs." if r2_done else ""), size=20, color=GRAY)
     notes(s, "[0:40] R2 is the sweep. On a log axis the methods are close up to 50 percent and split after 60. OWL-inverse, which gives outlier-rich "
              "blocks more sparsity, is the worst, and that supports the idea. R3 is mean zero-shot accuracy over seven tasks, and R4 is the outlier "
-             "distribution before and after pruning. [Fill in our numbers before the talk.]")
+             "distribution before and after pruning."
+             + (f" The rings are our runs. They sit on the paper's points up to 70 percent: {r2_uni[3]:.2f} and {r2_owl[3]:.2f} against 85.77 and 24.54. "
+                f"At 80 percent ours are higher, {r2_uni[4]:.0f} and {r2_owl[4]:.0f}, but OWL is still about {r2_uni[4] / r2_owl[4]:.1f} times better."
+                if r2_done else " [Fill in our R2 numbers before the talk.]")
+             + r4_note
+             + ("" if zs_acc("r1/llama7b_dense.json") is not None else " The zero-shot column is not filled in yet."))
 
     # ---- 9 status
     n_done, gpu_hours, gpu_names = done_runs()
@@ -671,7 +734,6 @@ def build(template, out):
     ch.value_axis.maximum_scale = 20
     ch.value_axis.major_unit = 5
     # size ladder, log scale from 0.5B to 65B
-    import math
     x0, per = 9.75, 3.82
     pos = lambda b: x0 + (math.log10(b) - math.log10(0.5)) * per
     txt(s, 9.75, 3.95, 9.2, 0.5, "Model sizes tested (parameters, log scale)", size=24, bold=True)
@@ -758,15 +820,21 @@ def build(template, out):
             finding = [f"OWL hurts {' and '.join(hurt)}, the smallest of each family. The gain does not grow as models shrink."]
         else:
             finding = [f"With Wanda, OWL helps {len(helped)} of {len(rows_e1)} models."]
-        lod = [r for r in rows_e1 if r["lod_u"] is not None]
+        lod = [(r["lod_cv"], r["lod_u"], r["wanda"][2], r["sparsegpt"][2]) for r in rows_e1 if r["lod_cv"] is not None]
+        for _, _, stem, _, _ in R1_MODELS:
+            v, dense_lod = ours[stem], load(f"e2/{stem}_dense.json")
+            if dense_lod and all(x is not None for x in v[1:]):
+                summ = dense_lod["lod_dense_summary"]["5.0"]
+                lod.append((summ["cv"], summ["u"], math.log(v[1]) - math.log(v[2]), math.log(v[3]) - math.log(v[4])))
         rho_note = ""
         if len(lod) >= 4:
-            rho_w = spearman([r["lod_u"] for r in lod], [r["wanda"][2] for r in lod])
-            rho_s = spearman([r["lod_u"] for r in lod], [r["sparsegpt"][2] for r in lod])
-            finding.append([("E2: ", {"bold": True}), f"a more U-shaped LOD goes with a larger Wanda gain, ρ = {rho_w:+.2f} (n = {len(lod)}). "
+            cv, u, gw, gs = zip(*lod)
+            rho_w, rho_s, rho_u = spearman(cv, gw), spearman(cv, gs), spearman(u, gw)
+            finding.append([("E2: ", {"bold": True}), f"a more uneven LOD goes with a larger Wanda gain, ρ = {rho_w:+.2f} (n = {len(lod)}). "
                             f"No signal with SparseGPT ({rho_s:+.2f})."])
-            rho_note = (f" For E2, the Spearman correlation between how U-shaped the dense outlier distribution is and the Wanda gain is {rho_w:+.2f}. "
-                        f"With SparseGPT it is {rho_s:+.2f}, so no signal. That is only {len(lod)} models, so it is exploratory.")
+            rho_note = (f" For E2 we take all {len(lod)} models that have run, the paper's included. The Spearman correlation between how uneven the "
+                        f"dense outlier distribution is across blocks and the Wanda gain is {rho_w:+.2f}, and {rho_u:+.2f} with the U-shape measure. "
+                        f"With SparseGPT it is {rho_s:+.2f}, so no signal. With {len(lod)} models this is exploratory.")
         box(s, 12.0, 8.45, 6.95, 1.85, fill=TINT, radius=0.07)
         txt(s, 12.25, 8.45, 6.5, 1.85, finding, size=19, anchor="m", after=6, ls=1.15)
         txt(s, 1.12, 10.4, 17, 0.4, "Our runs, one calibration seed, M = 5, λ = 0.08. Positive ΔL means OWL helps. In the table, purple beats uniform and red is worse.",
@@ -811,6 +879,9 @@ def build(template, out):
     steps = ["Dense check: 5.68", "R1 to R4", "E1 to E3", "Report: Dec 4"]
     if rows_e1 and not paper_done:
         steps = ["E1 70% + E2: done", "R1 to R4", "E1 rest, E3", "Report: Dec 4"]
+    elif rows_e1:
+        r3_done = zs_acc("r1/llama7b_dense.json") is not None
+        steps = ["R1 to R4: done" if r3_done else "R1, R2, R4: done", "E1 70% + E2: done", "E1 rest, E3" if r3_done else "R3, E1 rest, E3", "Report: Dec 4"]
     for i, label in enumerate(steps):
         x = 1.12 + i * 4.55
         box(s, x, 9.2, 3.75, 0.95, paras=label, font="Archivo Black", size=24)

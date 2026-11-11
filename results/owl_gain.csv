@@ -13,5 +13,12 @@ e1,meta-llama/Llama-3.2-1B,sparsegpt,0.7,5.0,0.08,0,c4,9.757,129.672,134.931,-0.
 e1,meta-llama/Llama-3.2-1B,wanda,0.7,5.0,0.08,0,c4,9.757,389.025,415.103,-0.0649
 e1,meta-llama/Llama-3.2-3B,sparsegpt,0.7,5.0,0.08,0,c4,7.817,67.64,58.08,0.1524
 e1,meta-llama/Llama-3.2-3B,wanda,0.7,5.0,0.08,0,c4,7.817,143.472,123.411,0.1506
+r1,facebook/opt-6.7b,sparsegpt,0.7,10.0,0.08,0,c4,10.86,20.569,21.761,-0.0564
+r1,facebook/opt-6.7b,wanda,0.7,10.0,0.08,0,c4,10.86,162.262,43.058,1.3267
 r1,huggyllama/llama-7b,sparsegpt,0.7,5.0,0.08,0,c4,5.677,26.397,18.889,0.3346
 r1,huggyllama/llama-7b,wanda,0.7,5.0,0.08,0,c4,5.677,84.837,24.315,1.2496
+r2,huggyllama/llama-7b,wanda,0.4,5.0,0.08,0,c4,,6.386,6.394,-0.0012
+r2,huggyllama/llama-7b,wanda,0.5,5.0,0.08,0,c4,,7.256,7.219,0.0052
+r2,huggyllama/llama-7b,wanda,0.6,5.0,0.08,0,c4,,10.697,9.354,0.1342
+r2,huggyllama/llama-7b,wanda,0.7,5.0,0.08,0,c4,,84.837,24.315,1.2496
+r2,huggyllama/llama-7b,wanda,0.8,5.0,0.08,0,c4,,5716.1,1578.557,1.2868
