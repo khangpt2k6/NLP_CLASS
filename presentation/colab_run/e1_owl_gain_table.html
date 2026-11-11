@@ -1,0 +1,345 @@
+
+  <div id="df-670ec050-0815-4de2-8a13-c37317bf759d" class="colab-df-container">
+    <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>model</th>
+      <th>params</th>
+      <th>method</th>
+      <th>s</th>
+      <th>ppl_uni</th>
+      <th>ppl_owl</th>
+      <th>drop</th>
+      <th>dL</th>
+      <th>loss_vs_dense</th>
+      <th>zs_uni</th>
+      <th>zs_owl</th>
+      <th>sparsity_uni</th>
+      <th>sparsity_owl</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>2</th>
+      <td>llama3.2-1b</td>
+      <td>1.2</td>
+      <td>sparsegpt</td>
+      <td>0.7</td>
+      <td>129.672</td>
+      <td>134.931</td>
+      <td>-5.258</td>
+      <td>-0.040</td>
+      <td>2.627</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>llama3.2-3b</td>
+      <td>3.2</td>
+      <td>sparsegpt</td>
+      <td>0.7</td>
+      <td>67.640</td>
+      <td>58.080</td>
+      <td>9.560</td>
+      <td>0.152</td>
+      <td>2.005</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>0</th>
+      <td>llama3.1-8b</td>
+      <td>8.0</td>
+      <td>sparsegpt</td>
+      <td>0.7</td>
+      <td>39.830</td>
+      <td>33.641</td>
+      <td>6.189</td>
+      <td>0.169</td>
+      <td>1.685</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>qwen2.5-0.5b</td>
+      <td>0.5</td>
+      <td>sparsegpt</td>
+      <td>0.7</td>
+      <td>181.482</td>
+      <td>215.967</td>
+      <td>-34.485</td>
+      <td>-0.174</td>
+      <td>2.804</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>qwen2.5-1.5b</td>
+      <td>1.5</td>
+      <td>sparsegpt</td>
+      <td>0.7</td>
+      <td>80.736</td>
+      <td>47.973</td>
+      <td>32.763</td>
+      <td>0.521</td>
+      <td>1.644</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>qwen2.5-3b</td>
+      <td>3.1</td>
+      <td>sparsegpt</td>
+      <td>0.7</td>
+      <td>31.729</td>
+      <td>34.488</td>
+      <td>-2.759</td>
+      <td>-0.083</td>
+      <td>1.457</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>qwen2.5-7b</td>
+      <td>7.6</td>
+      <td>sparsegpt</td>
+      <td>0.7</td>
+      <td>20.991</td>
+      <td>19.775</td>
+      <td>1.216</td>
+      <td>0.060</td>
+      <td>1.060</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>llama3.2-1b</td>
+      <td>1.2</td>
+      <td>wanda</td>
+      <td>0.7</td>
+      <td>389.025</td>
+      <td>415.103</td>
+      <td>-26.078</td>
+      <td>-0.065</td>
+      <td>3.751</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>llama3.2-3b</td>
+      <td>3.2</td>
+      <td>wanda</td>
+      <td>0.7</td>
+      <td>143.472</td>
+      <td>123.411</td>
+      <td>20.061</td>
+      <td>0.151</td>
+      <td>2.759</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>llama3.1-8b</td>
+      <td>8.0</td>
+      <td>wanda</td>
+      <td>0.7</td>
+      <td>109.219</td>
+      <td>79.027</td>
+      <td>30.192</td>
+      <td>0.324</td>
+      <td>2.539</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>qwen2.5-0.5b</td>
+      <td>0.5</td>
+      <td>wanda</td>
+      <td>0.7</td>
+      <td>395.256</td>
+      <td>500.149</td>
+      <td>-104.893</td>
+      <td>-0.235</td>
+      <td>3.644</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>qwen2.5-1.5b</td>
+      <td>1.5</td>
+      <td>wanda</td>
+      <td>0.7</td>
+      <td>822.721</td>
+      <td>250.222</td>
+      <td>572.499</td>
+      <td>1.190</td>
+      <td>3.296</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>qwen2.5-3b</td>
+      <td>3.1</td>
+      <td>wanda</td>
+      <td>0.7</td>
+      <td>161.404</td>
+      <td>89.135</td>
+      <td>72.270</td>
+      <td>0.594</td>
+      <td>2.407</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>qwen2.5-7b</td>
+      <td>7.6</td>
+      <td>wanda</td>
+      <td>0.7</td>
+      <td>74.699</td>
+      <td>48.701</td>
+      <td>25.998</td>
+      <td>0.428</td>
+      <td>1.961</td>
+      <td>None</td>
+      <td>None</td>
+      <td>0.7</td>
+      <td>0.7</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+    <div class="colab-df-buttons">
+
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-670ec050-0815-4de2-8a13-c37317bf759d')"
+            title="Convert this dataframe to an interactive table."
+            style="display:none;">
+
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"/>
+  </svg>
+    </button>
+
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+
+    <script>
+      const buttonEl =
+        document.querySelector('#df-670ec050-0815-4de2-8a13-c37317bf759d button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-670ec050-0815-4de2-8a13-c37317bf759d');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    </script>
+  </div>
+
+
+    </div>
+  </div>
