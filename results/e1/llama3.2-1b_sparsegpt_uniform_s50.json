@@ -1,0 +1,67 @@
+{
+ "args": {
+  "model": "meta-llama/Llama-3.2-1B",
+  "method": "sparsegpt",
+  "alloc": "uniform",
+  "sparsity": 0.5,
+  "M": 5.0,
+  "lam": 0.08,
+  "nsamples": 128,
+  "seqlen": 2048,
+  "seed": 0,
+  "shuffle_seed": 0,
+  "calib": "c4",
+  "dtype": "auto",
+  "eval": "wikitext2",
+  "max_eval_windows": null,
+  "zeroshot": "",
+  "zs_batch_size": 8,
+  "zs_limit": null,
+  "lod": "",
+  "save_model": "",
+  "out": "results/e1/llama3.2-1b_sparsegpt_uniform_s50.json",
+  "overwrite": false
+ },
+ "env": {
+  "python": "3.13.16",
+  "torch": "2.14.1+cu130",
+  "transformers": "5.22.1",
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "host": "de7d471256a5",
+  "lm_eval": "0.4.13"
+ },
+ "started": "2026-11-11 22:02:03",
+ "dtype": "torch.bfloat16",
+ "load_seconds": 4.04606819152832,
+ "prune": {
+  "method": "sparsegpt",
+  "alloc": "uniform",
+  "target_sparsity": 0.5,
+  "alloc_seconds": 1.9073486328125e-06,
+  "prune_seconds": 117.75089478492737
+ },
+ "sparsity": 0.5000031210225204,
+ "block_sparsity": [
+  0.5000029761215736,
+  0.5000029761215736,
+  0.5000034858440531,
+  0.5000030418922161,
+  0.5000030418922161,
+  0.5000032556468043,
+  0.5000030583348768,
+  0.5000029761215736,
+  0.5000030583348768,
+  0.5000033049747862,
+  0.5000033214174467,
+  0.5000031898761618,
+  0.500003091220198,
+  0.5000032063188224,
+  0.5000028445802885,
+  0.5000031076628586
+ ],
+ "ppl": {
+  "wikitext2": 19.046432495117188
+ },
+ "total_seconds": 138.0977964401245,
+ "max_gpu_mem_gb": 5.372892379760742
+}
