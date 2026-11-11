@@ -1,0 +1,656 @@
+"""Builds the project presentation on top of a Canva-exported template deck.
+
+Usage: python presentation/build_deck.py <template.pptx> <out.pptx>
+
+The template supplies the background, the purple swirl art, the embedded fonts
+(Garet, Archivo Black) and the title / contents / Q&A slides. Every content
+slide is rebuilt here. Paper numbers come from Yin et al. (ICML 2024),
+Tables 3, 4 and 8. Our own GPU numbers are left as [__].
+"""
+import copy
+import json
+import sys
+from pathlib import Path
+
+from pptx import Presentation
+from pptx.chart.data import CategoryChartData
+from pptx.dml.color import RGBColor
+from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION, XL_LEGEND_POSITION, XL_MARKER_STYLE
+from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
+from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
+from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+from pptx.oxml.ns import qn
+from pptx.util import Inches, Pt
+
+INK = "000000"
+GRAY = "5F5F5F"
+LINE = "DDD3E6"
+LAV = "E5BBF6"      # the template's box colour
+TINT = "F7EEFC"
+VIOLET = "7C3AED"
+LVIOLET = "C9B0F7"
+ORANGE = "F2740B"
+LORANGE = "FBC38D"
+TEAL = "0E9F9A"
+SLATE = "8A8696"
+RED = "D6336C"
+
+ALIGN = {"l": PP_ALIGN.LEFT, "c": PP_ALIGN.CENTER, "r": PP_ALIGN.RIGHT}
+ANCHOR = {"t": MSO_ANCHOR.TOP, "m": MSO_ANCHOR.MIDDLE, "b": MSO_ANCHOR.BOTTOM}
+R_EMBED = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
+
+
+def rgb(h):
+    return RGBColor.from_string(h)
+
+
+# ---------------------------------------------------------------- text
+def style_run(run, size, font="Garet", bold=False, color=INK):
+    f = run.font
+    f.size = Pt(size)
+    f.bold = True if bold else None
+    f.color.rgb = rgb(color)
+    name = "Garet Bold" if (bold and font == "Garet") else font
+    f.name = name
+    rPr = run._r.get_or_add_rPr()
+    for tag in ("a:ea", "a:cs", "a:sym"):
+        rPr.append(rPr.makeelement(qn(tag), {"typeface": name}))
+    rPr.set("spc", str(int(-size * 4)))  # slight negative tracking, like the template
+
+
+def fill_tf(tf, paras, size=28, font="Garet", bold=False, color=INK, align="l", anchor="t", ls=1.2, after=0, inset=0):
+    """paras: list of paragraphs. A paragraph is a str or a list of runs.
+    A run is a str or (str, {size, font, bold, color})."""
+    tf.word_wrap = True
+    tf.auto_size = MSO_AUTO_SIZE.NONE
+    tf.vertical_anchor = ANCHOR[anchor]
+    tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = Inches(inset)
+    if isinstance(paras, str):
+        paras = [paras]
+    for i, para in enumerate(paras):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.alignment = ALIGN[align]
+        runs = [para] if isinstance(para, (str, tuple)) else para
+        biggest = size
+        for item in runs:
+            text, o = (item, {}) if isinstance(item, str) else item
+            r = p.add_run()
+            r.text = text
+            rs = o.get("size", size)
+            biggest = max(biggest, rs)
+            style_run(r, rs, o.get("font", font), o.get("bold", bold), o.get("color", color))
+        p.line_spacing = Pt(biggest * ls)
+        p.space_after = Pt(after)
+        p.space_before = Pt(0)
+
+
+def txt(slide, x, y, w, h, paras, **kw):
+    tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
+    fill_tf(tb.text_frame, paras, **kw)
+    return tb
+
+
+def box(slide, x, y, w, h, fill=LAV, line=None, radius=None, paras=None, shape=None, **kw):
+    kind = shape or (MSO_SHAPE.ROUNDED_RECTANGLE if radius else MSO_SHAPE.RECTANGLE)
+    s = slide.shapes.add_shape(kind, Inches(x), Inches(y), Inches(w), Inches(h))
+    s.shadow.inherit = False
+    if radius and kind == MSO_SHAPE.ROUNDED_RECTANGLE:
+        s.adjustments[0] = radius
+    if fill:
+        s.fill.solid()
+        s.fill.fore_color.rgb = rgb(fill)
+    else:
+        s.fill.background()
+    if line:
+        s.line.color.rgb = rgb(line)
+        s.line.width = Pt(1.5)
+    else:
+        s.line.fill.background()
+    if paras is not None:
+        kw.setdefault("align", "c")
+        kw.setdefault("anchor", "m")
+        kw.setdefault("inset", 0.12)
+        fill_tf(s.text_frame, paras, **kw)
+    return s
+
+
+def arrow(slide, x1, y1, x2, y2, color=INK, width=4):
+    c = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Inches(x1), Inches(y1), Inches(x2), Inches(y2))
+    c.line.color.rgb = rgb(color)
+    c.line.width = Pt(width)
+    ln = c.line._get_or_add_ln()
+    ln.append(ln.makeelement(qn("a:tailEnd"), {"type": "triangle", "w": "med", "len": "med"}))
+    return c
+
+
+def chip(slide, x, y, label, w=1.05, h=0.62, fill=LAV, color=INK, size=24):
+    return box(slide, x, y, w, h, fill=fill, paras=label, font="Archivo Black", size=size, color=color, inset=0.02)
+
+
+# ---------------------------------------------------------------- template plumbing
+def clone_shape(src_slide, shape, dst_slide):
+    el = copy.deepcopy(shape._element)
+    for blip in el.iter(qn("a:blip")):
+        part = src_slide.part.related_part(blip.get(R_EMBED))
+        blip.set(R_EMBED, dst_slide.part.relate_to(part, RT.IMAGE))
+    dst_slide.shapes._spTree.append(el)
+    return dst_slide.shapes[-1]
+
+
+def shape_named(slide, name):
+    return next(s for s in slide.shapes if s.name == name)
+
+
+def set_lines(shape, lines, size=None, proto_index=0):
+    """Replace a text box's paragraphs, keeping the first paragraph's formatting."""
+    txBody = shape.text_frame._txBody
+    old = txBody.findall(qn("a:p"))
+    proto = old[proto_index]
+    for p in old:
+        txBody.remove(p)
+    for line in lines:
+        p = copy.deepcopy(proto)
+        runs = p.findall(qn("a:r"))
+        for extra in runs[1:]:
+            p.remove(extra)
+        runs[0].find(qn("a:t")).text = line
+        if size:
+            rPr = runs[0].find(qn("a:rPr"))
+            rPr.set("sz", str(int(size * 100)))
+            rPr.set("spc", str(int(-size * 6)))
+            spc = p.find(qn("a:pPr")).find(qn("a:lnSpc"))
+            if spc is not None:
+                spc.find(qn("a:spcPts")).set("val", str(int(size * 105)))
+        txBody.append(p)
+    shape.text_frame.auto_size = MSO_AUTO_SIZE.NONE
+
+
+def notes(slide, text):
+    slide.notes_slide.notes_text_frame.text = text
+
+
+# ---------------------------------------------------------------- charts
+def style_chart(ch, fsize=20, legend="b"):
+    ch.font.size = Pt(fsize)
+    ch.font.name = "Garet"
+    ch.font.color.rgb = rgb("333333")
+    ch.has_title = False
+    ch.has_legend = bool(legend)
+    if legend:
+        ch.legend.position = XL_LEGEND_POSITION.BOTTOM if legend == "b" else XL_LEGEND_POSITION.TOP
+        ch.legend.include_in_layout = False
+        ch.legend.font.size = Pt(fsize)
+        ch.legend.font.name = "Garet"
+    va = ch.value_axis
+    va.has_major_gridlines = True
+    va.major_gridlines.format.line.color.rgb = rgb("E6E1EC")
+    va.major_gridlines.format.line.width = Pt(1)
+    va.format.line.fill.background()
+    va.tick_labels.font.size = Pt(fsize)
+    va.tick_labels.font.name = "Garet"
+    ca = ch.category_axis
+    ca.has_major_gridlines = False
+    ca.format.line.color.rgb = rgb("9B95A6")
+    ca.tick_labels.font.size = Pt(fsize)
+    ca.tick_labels.font.name = "Garet"
+
+
+def add_chart(slide, kind, x, y, w, h, cats, series, colors, name, fsize=20, legend="b", labels=None, gap=70, overlap=-8):
+    cd = CategoryChartData()
+    cd.categories = cats
+    for sname, vals in series:
+        cd.add_series(sname, vals)
+    gf = slide.shapes.add_chart(kind, Inches(x), Inches(y), Inches(w), Inches(h), cd)
+    gf.name = name
+    ch = gf.chart
+    style_chart(ch, fsize, legend)
+    plot = ch.plots[0]
+    plot.vary_by_categories = False
+    is_bar = kind in (XL_CHART_TYPE.COLUMN_CLUSTERED, XL_CHART_TYPE.BAR_CLUSTERED)
+    if is_bar:
+        plot.gap_width = gap
+        plot.overlap = overlap
+    for s, c in zip(plot.series, colors):
+        if is_bar:
+            s.format.fill.solid()
+            s.format.fill.fore_color.rgb = rgb(c)
+            s.invert_if_negative = False
+        else:
+            s.format.line.color.rgb = rgb(c)
+            s.format.line.width = Pt(4.5)
+            s.smooth = False
+            s.marker.style = XL_MARKER_STYLE.CIRCLE
+            s.marker.size = 11
+            s.marker.format.fill.solid()
+            s.marker.format.fill.fore_color.rgb = rgb(c)
+            s.marker.format.line.color.rgb = rgb(c)
+    if labels:
+        plot.has_data_labels = True
+        dl = plot.data_labels
+        dl.font.size = Pt(fsize - 2)
+        dl.font.name = "Garet"
+        dl.font.color.rgb = rgb(INK)
+        dl.number_format = labels
+        dl.number_format_is_linked = False
+        dl.position = XL_LABEL_POSITION.OUTSIDE_END
+    return ch
+
+
+def color_points(ch, colors):
+    s = ch.plots[0].series[0]
+    for i, c in enumerate(colors):
+        pt = s.points[i]
+        pt.format.fill.solid()
+        pt.format.fill.fore_color.rgb = rgb(c)
+
+
+def log_axis(ch, lo, hi):
+    va = ch.value_axis
+    va.minimum_scale = lo
+    va.maximum_scale = hi
+    scaling = va._element.find(qn("c:scaling"))
+    scaling.insert(0, scaling.makeelement(qn("c:logBase"), {"val": "10"}))
+
+
+def label_skip(ch, n):
+    ax = ch.category_axis._element
+    el = ax.makeelement(qn("c:tickLblSkip"), {"val": str(n)})
+    anchor = ax.find(qn("c:noMultiLvlLbl"))
+    if anchor is not None:
+        anchor.addprevious(el)
+    else:
+        ax.append(el)
+
+
+# ---------------------------------------------------------------- tables
+def add_table(slide, x, y, widths, rows, row_h=0.8, size=24, head_size=24, name="Table"):
+    gf = slide.shapes.add_table(len(rows), len(widths), Inches(x), Inches(y), Inches(sum(widths)), Inches(row_h * len(rows)))
+    gf.name = name
+    t = gf.table
+    t.horz_banding = False
+    for i, w in enumerate(widths):
+        t.columns[i].width = Inches(w)
+    for r, row in enumerate(rows):
+        t.rows[r].height = Inches(row_h)
+        for c, val in enumerate(row):
+            cell = t.cell(r, c)
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = rgb(LAV if r == 0 else ("FFFFFF" if r % 2 else TINT))
+            cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+            cell.margin_left = cell.margin_right = Inches(0.18)
+            cell.margin_top = cell.margin_bottom = Inches(0.05)
+            o = {}
+            if isinstance(val, tuple):
+                val, o = val
+            tf = cell.text_frame
+            tf.word_wrap = True
+            p = tf.paragraphs[0]
+            p.alignment = ALIGN[o.get("align", "l")]
+            run = p.add_run()
+            run.text = val
+            if r == 0:
+                style_run(run, head_size, "Archivo Black")
+            else:
+                style_run(run, o.get("size", size), "Garet", o.get("bold", False), o.get("color", INK))
+            p.line_spacing = Pt((head_size if r == 0 else size) * 1.15)
+    return t
+
+
+# ---------------------------------------------------------------- deck
+def build(template, out):
+    prs = Presentation(template)
+    slides = list(prs.slides)
+    cover, toc, base, qa = slides[0], slides[1], slides[3], slides[57]
+    blank = base.slide_layout
+    base_shapes = [shape_named(base, n) for n in ("Freeform 2", "Freeform 3", "TextBox 6", "TextBox 7")]
+    page = [2]
+
+    def content(title, sub):
+        s = prs.slides.add_slide(blank)
+        _, _, t, h = [clone_shape(base, sh, s) for sh in base_shapes]
+        set_lines(t, [title])
+        set_lines(h, [sub])
+        page[0] += 1
+        txt(s, 17.9, 10.52, 1.0, 0.4, str(page[0]), size=20, color=GRAY, align="r")
+        return s
+
+    # ---- 1 cover
+    set_lines(shape_named(cover, "TextBox 5"), ["OWL"])
+    set_lines(shape_named(cover, "TextBox 7"), ["Outlier Weighed Layerwise Sparsity", "on small modern LLMs"], size=80)
+    set_lines(shape_named(cover, "TextBox 8"), ["Fall 2026"])
+    who = shape_named(cover, "TextBox 6")
+    body = who.text_frame._txBody
+    ps = body.findall(qn("a:p"))
+    course, gap_p, person = ps[0], ps[1], ps[2]
+    for p in ps:
+        body.remove(p)
+    course.find(qn("a:r")).find(qn("a:t")).text = "CAI 5307 - NLP Project"
+    body.append(course)
+    body.append(gap_p)
+    for nm in ("Tuan Khang Phan", "Xuan Gia Han Nguyen"):
+        p = copy.deepcopy(person)
+        p.find(qn("a:r")).find(qn("a:t")).text = nm
+        body.append(p)
+    who.width = Inches(9.5)
+    notes(cover, "[0:15] Hi, we are Khang and Han. We are reproducing OWL, a pruning paper from ICML 2024, "
+                 "and testing whether its main idea still helps on small modern language models.")
+
+    # ---- 2 contents
+    for name, lines in (("TextBox 10", ["What does", "OWL claim?"]), ("TextBox 14", ["Can we", "reproduce it?"]),
+                        ("TextBox 18", ["Does it hold", "on new LLMs?"]), ("TextBox 22", ["What do", "we need?"])):
+        set_lines(shape_named(toc, name), lines)
+    for name, line in (("TextBox 23", "One-shot pruning and the OWL idea"), ("TextBox 24", "Four claims, four experiments"),
+                       ("TextBox 25", "Our extension to Qwen2.5 and Llama 3"), ("TextBox 26", "Models, GPU hours, timeline")):
+        set_lines(shape_named(toc, name), [line])
+    notes(toc, "[0:15] Four parts: what the paper claims, how we reproduce it, our extension, and the resources we need.")
+
+    # ---- 3 the problem
+    s = content("1. What does OWL claim?", "Pruning every layer equally breaks at 70%")
+    flow = [("Dense LLM", "LLaMA-7B"), ("Prune 70% of weights", "one shot, no retraining"), ("Sparse LLM", "same sparsity in every layer")]
+    for i, (a, b) in enumerate(flow):
+        x = 1.12 + i * 6.15
+        box(s, x, 4.1, 5.4, 1.45, paras=[(a, {"font": "Archivo Black", "size": 28}), (b, {"size": 22})], ls=1.15)
+        if i < 2:
+            arrow(s, x + 5.5, 4.82, x + 6.05, 4.82)
+    ch = add_chart(s, XL_CHART_TYPE.COLUMN_CLUSTERED, 1.0, 5.95, 10.6, 4.4,
+                   ["Dense", "50% sparse", "60% sparse", "70% sparse"], [("WikiText perplexity", [5.68, 7.26, 10.70, 85.77])],
+                   [LVIOLET], "Chart: Wanda perplexity by sparsity", legend=None, labels="0.00", gap=90)
+    color_points(ch, [SLATE, LVIOLET, LVIOLET, RED])
+    ch.value_axis.maximum_scale = 100
+    ch.value_axis.major_unit = 25
+    txt(s, 12.3, 6.05, 6.6, 2.2, ["Wanda and SparseGPT score each weight, then cut the same share from every layer."], size=28)
+    txt(s, 12.3, 8.1, 6.6, 1.5, [[("15x", {"font": "Archivo Black", "size": 60, "color": RED})]], size=28, ls=1.0)
+    txt(s, 12.3, 9.15, 6.6, 1.1, ["worse than dense at 70% sparsity"], size=28)
+    txt(s, 1.12, 10.45, 16.5, 0.4, "LLaMA-7B pruned with Wanda, uniform sparsity. Lower is better. Yin et al. 2024, Tables 3 and 8.", size=20, color=GRAY)
+    notes(s, "[0:40] The setting is one-shot pruning: take a trained LLM, zero out a share of its weights, no retraining. "
+             "The strong methods, Wanda and SparseGPT, score each weight and remove the same share from every layer. "
+             "That works at 50 percent. On LLaMA-7B dense perplexity is 5.68 and Wanda at 50 percent is 7.26. "
+             "At 70 percent it jumps to 85.77, about fifteen times worse. Uniform sparsity breaks exactly where pruning would be most useful.")
+
+    # ---- 4 the idea
+    s = content("1. What does OWL claim?", "OWL prunes outlier-rich blocks less")
+    steps = [("Score every weight", "Wanda metric: input norm times weight size", "A = ||X|| · |W|"),
+             ("Count outliers", "Per block: share of weights scoring over M times the mean", "LOD, one value per block"),
+             ("Set block sparsity", "More outliers, lower sparsity, inside a narrow band", "Block sparsity ~ 1 − LOD")]
+    for i, (head, desc, formula) in enumerate(steps):
+        x = 1.12 + i * 6.05
+        box(s, x, 4.05, 5.65, 2.95, fill=TINT, radius=0.06)
+        box(s, x + 0.3, 4.3, 0.75, 0.75, shape=MSO_SHAPE.OVAL, paras=str(i + 1), font="Archivo Black", size=28, inset=0)
+        txt(s, x + 1.25, 4.38, 4.2, 0.6, head, size=28, bold=True)
+        txt(s, x + 0.3, 5.25, 5.1, 1.0, desc, size=22, color="333333")
+        txt(s, x + 0.3, 6.3, 5.1, 0.55, formula, size=24, bold=True, color=VIOLET)
+        if i < 2:
+            arrow(s, x + 5.7, 5.5, x + 6.0, 5.5, width=3)
+    n = 12
+    shades_owl = ["F3E8FF", "D8B4FE", "A855F7", "9333EA", "7E22CE", "7E22CE", "7E22CE", "7E22CE", "9333EA", "A855F7", "D8B4FE", "F3E8FF"]
+    for row, (label, shades, right) in enumerate((("Uniform", ["A855F7"] * n, "70% in every block"), ("OWL", shades_owl, "70% on average"))):
+        y = 7.5 + row * 1.2
+        txt(s, 1.12, y, 2.3, 0.9, label, size=30, bold=True, anchor="m")
+        for k in range(n):
+            box(s, 3.5 + k * 0.98, y, 0.86, 0.9, fill=shades[k], line="6B21A8" if shades[k] == "F3E8FF" else None)
+        txt(s, 15.5, y, 3.5, 0.9, right, size=24, anchor="m")
+    txt(s, 3.5, 9.95, 6.0, 0.4, "Transformer blocks, first to last", size=20, color=GRAY)
+    txt(s, 9.6, 9.95, 5.6, 0.4, "Illustration. Darker means pruned more.", size=20, color=GRAY, align="r")
+    notes(s, "[0:45] OWL asks whether every layer should lose the same share. It uses the Wanda score, input norm times weight magnitude. "
+             "For each Transformer block it counts outliers, weights whose score is more than M times the block average. "
+             "That gives the layerwise outlier distribution, LOD. Blocks with more outliers are pruned less, and block sparsity stays "
+             "in a narrow band around the target, so the total is unchanged. In dense LLaMA the first and last blocks hold more outliers, "
+             "so they keep more weights.")
+
+    # ---- 5 claims
+    s = content("1. What does OWL claim?", "Four claims we test")
+    claims = [("C1", "85.77 → 24.55", "OWL beats uniform sparsity at 70% (LLaMA-7B perplexity, Wanda). On OPT-6.7B it hurts SparseGPT."),
+              ("C2", "61.22 vs 6.62", "The gain grows as models shrink: perplexity drop with Wanda at 7B vs 65B."),
+              ("C3", "39.4% → 46.5%", "Zero-shot accuracy improves too. Mean of 7 tasks, LLaMA-7B at 70%, Wanda."),
+              ("C4", "U-shaped", "Outliers are not spread evenly across blocks, and good pruning methods keep them.")]
+    for i, (tag, big, desc) in enumerate(claims):
+        x = 1.12 + (i % 2) * 9.0
+        y = 4.05 + (i // 2) * 3.15
+        box(s, x, y, 8.7, 2.9, fill=TINT, radius=0.06)
+        chip(s, x + 0.35, y + 0.38, tag)
+        txt(s, x + 1.65, y + 0.25, 6.8, 0.9, big, font="Archivo Black", size=46, color=VIOLET, anchor="m", ls=1.0)
+        txt(s, x + 0.35, y + 1.35, 8.0, 1.4, desc, size=24, color="222222")
+    notes(s, "[0:40] We test four claims. One, OWL beats uniform sparsity at 70 percent: with Wanda on LLaMA-7B perplexity falls from 85.77 to 24.55. "
+             "There is one exception we also check, SparseGPT on OPT gets slightly worse. Two, the gain grows as models shrink, 61 points at 7B "
+             "but under 7 at 65B. Three, zero-shot accuracy improves, 39.4 to 46.5 on average. Four, outliers are unevenly spread, "
+             "roughly a U shape across blocks.")
+
+    # ---- 6 reproduction plan
+    s = content("2. Can we reproduce it?", "Four experiments, one per claim")
+    rows = [["Exp.", "Paper target", "What we run", "Claim"],
+            [("R1", {"bold": True}), "Table 3", "70% sparsity on LLaMA-7B, LLaMA-13B and OPT-6.7B. Magnitude, Wanda, SparseGPT, uniform vs OWL", "C1, C2"],
+            [("R2", {"bold": True}), "Figure 2, Table 8", "40% to 80% sweep on LLaMA-7B with Wanda, six ways to split sparsity", "C1"],
+            [("R3", {"bold": True}), "Table 4", "Zero-shot accuracy on 7 tasks, dense vs 70% sparse LLaMA-7B", "C3"],
+            [("R4", {"bold": True}), "Table 1, Figure 1", "Outlier distribution of each dense model, again after pruning", "C4"]]
+    add_table(s, 1.12, 4.0, [1.5, 3.7, 10.6, 1.9], rows, row_h=0.92, size=22, name="Table: reproduction plan")
+    box(s, 1.12, 8.95, 17.7, 1.3, fill=TINT, radius=0.1)
+    txt(s, 1.45, 8.95, 17.1, 1.3, [[("Reproduced ", {"bold": True}),
+        "means the dense LLaMA-7B perplexity is 5.68, every R1 setting moves in the paper's direction, and our 70% perplexities are within 15% of the paper's."]],
+        size=24, anchor="m")
+    txt(s, 1.12, 10.4, 14, 0.4, "Left out: LLaMA-30B and 65B, the CPU speedup study, LoRA fine-tuning.", size=20, color=GRAY)
+    notes(s, "[0:35] Each claim maps to one experiment. R1 is Table 3 at 70 percent on three models. R2 is the sparsity sweep with six allocation rules. "
+             "R3 is zero-shot accuracy. R4 recomputes the outlier distribution before and after pruning. We skip the 30B and 65B models and the speedup "
+             "and fine-tuning studies. We call a claim reproduced when the direction matches and our perplexity is within 15 percent of the paper's.")
+
+    # ---- 7 R1
+    s = content("2. Can we reproduce it?", "R1: Table 3 at 70% sparsity")
+    ch = add_chart(s, XL_CHART_TYPE.COLUMN_CLUSTERED, 0.95, 3.85, 11.5, 6.4, ["LLaMA-7B", "LLaMA-13B", "OPT-6.7B"],
+                   [("Wanda", [85.77, 55.90, 162.92]), ("OWL + Wanda", [24.55, 17.17, 40.22]),
+                    ("SparseGPT", [26.30, 19.24, 20.29]), ("OWL + SparseGPT", [19.49, 14.55, 22.48])],
+                   [LVIOLET, VIOLET, LORANGE, ORANGE], "Chart: Table 3 perplexity at 70% sparsity", labels="0.00", fsize=20, gap=45, overlap=-6)
+    ch.value_axis.maximum_scale = 180
+    ch.value_axis.major_unit = 30
+    P = {"align": "r"}
+    O = {"align": "r", "color": VIOLET, "bold": True}
+    rows = [["LLaMA-7B", ("Paper", P), ("Ours", P)],
+            ["Dense", ("5.68", P), ("[__]", O)],
+            ["Wanda", ("85.77", P), ("[__]", O)],
+            ["OWL + Wanda", ("24.55", P), ("[__]", O)],
+            ["SparseGPT", ("26.30", P), ("[__]", O)],
+            ["OWL + SparseGPT", ("19.49", P), ("[__]", O)]]
+    add_table(s, 12.85, 4.0, [3.35, 1.4, 1.4], rows, row_h=0.72, size=22, head_size=22, name="Table: paper vs ours")
+    txt(s, 12.85, 8.55, 6.15, 1.7, ["OWL helps in 5 of 6 cases. With SparseGPT on OPT-6.7B it gets worse, and we check that too."], size=24)
+    txt(s, 1.12, 10.4, 14, 0.4, "WikiText-2 perplexity, lower is better. Bars show the paper's numbers (Yin et al. 2024, Table 3).", size=20, color=GRAY)
+    notes(s, "[0:50] This is the main table we target. Bars are the paper's numbers. Dark bars are OWL, light bars are uniform. "
+             "For LLaMA-7B and 13B, OWL helps both methods. For OPT with SparseGPT the OWL bar is slightly higher, and we want to see that too. "
+             "[Fill in before the talk: our dense perplexity is __, Wanda __, OWL plus Wanda __, and whether each case moves in the paper's direction.]")
+
+    # ---- 8 R2-R4
+    s = content("2. Can we reproduce it?", "R2 to R4: sweep, zero-shot, outliers")
+    txt(s, 1.12, 3.95, 9.5, 0.5, "R2: perplexity vs sparsity, LLaMA-7B + Wanda (log scale)", size=24, bold=True)
+    ch = add_chart(s, XL_CHART_TYPE.LINE_MARKERS, 0.95, 4.45, 10.3, 5.85, ["40%", "50%", "60%", "70%", "80%"],
+                   [("Uniform", [6.38, 7.26, 10.70, 85.77, 3499.88]), ("OWL", [6.39, 7.22, 9.35, 24.54, 1002.87]),
+                    ("OWL-inverse", [6.51, 8.03, 26.05, 822.23, 9616.08]), ("ER", [6.55, 7.74, 12.16, 112.03, 11151.18])],
+                   [SLATE, VIOLET, ORANGE, TEAL], "Chart: Table 8 sparsity sweep")
+    log_axis(ch, 1, 100000)
+    txt(s, 2.75, 4.85, 5.2, 1.0, [[("At 70%:  ", {"bold": True}), ("uniform 85.77", {"color": "5E5A6B", "bold": True})],
+                                  [("OWL 24.54", {"color": VIOLET, "bold": True})]], size=22, ls=1.25)
+    ch.value_axis.tick_labels.number_format = "#,##0"
+    ch.value_axis.tick_labels.number_format_is_linked = False
+    txt(s, 11.75, 3.95, 7.2, 0.5, "R3: mean zero-shot accuracy, 7 tasks", size=24, bold=True)
+    rows = [["LLaMA-7B, 70%", ("Paper", P), ("Ours", P)],
+            ["Dense", ("62.40", P), ("[__]", O)],
+            ["Wanda", ("39.39", P), ("[__]", O)],
+            ["OWL + Wanda", ("46.47", P), ("[__]", O)],
+            ["SparseGPT", ("44.93", P), ("[__]", O)],
+            ["OWL + SparseGPT", ("48.03", P), ("[__]", O)]]
+    add_table(s, 11.75, 4.5, [4.2, 1.5, 1.5], rows, row_h=0.6, size=20, head_size=20, name="Table: zero-shot paper vs ours")
+    box(s, 11.75, 8.4, 7.2, 1.85, fill=TINT, radius=0.08)
+    txt(s, 12.05, 8.5, 6.7, 1.7, [[("R4: ", {"bold": True}), "outliers per block before and after pruning. We expect a U shape that survives pruning. Ours: [__]"]],
+        size=22, anchor="m")
+    txt(s, 1.12, 10.4, 14, 0.4, "Paper numbers from Yin et al. 2024, Tables 4 and 8. OWL-inverse gives outlier-rich blocks more sparsity.", size=20, color=GRAY)
+    notes(s, "[0:40] R2 is the sweep. On a log axis the methods are close up to 50 percent and split after 60. OWL-inverse, which gives outlier-rich "
+             "blocks more sparsity, is the worst, and that supports the idea. R3 is mean zero-shot accuracy over seven tasks, and R4 is the outlier "
+             "distribution before and after pruning. [Fill in our numbers before the talk.]")
+
+    # ---- 9 status
+    s = content("2. Can we reproduce it?", "Where we are: code runs, GPU runs next")
+    status = [(True, "Our port of OWL, Wanda, SparseGPT and magnitude pruning"),
+              (True, "28 unit tests pass, CPU smoke run works end to end"),
+              (True, "Job lists written for every experiment"),
+              (False, "Next: dense LLaMA-7B check (5.68), then R1 to R4 on GPU")]
+    for i, (done, line) in enumerate(status):
+        y = 4.05 + i * 0.95
+        box(s, 1.12, y + 0.08, 0.56, 0.56, shape=MSO_SHAPE.OVAL, fill=VIOLET if done else None, line=None if done else VIOLET,
+            paras="✓" if done else "", font="Arial", size=22, color="FFFFFF", bold=True, inset=0)
+        txt(s, 1.95, y, 6.9, 0.8, line, size=24, anchor="m", bold=not done)
+    box(s, 1.12, 8.0, 7.75, 2.25, fill=TINT, radius=0.07)
+    txt(s, 1.42, 8.0, 7.2, 2.25, [[("Found while porting: ", {"bold": True}),
+        "the released code scales block sparsity into a band 2λ wide, then shifts the mean to S. Some blocks leave the paper's stated range S ± λ."]],
+        size=22, anchor="m")
+    smoke = json.loads((Path(__file__).resolve().parent.parent / "results/smoke/smollm_wanda_owl_50.json").read_text())
+    lod = [round(v, 3) for v in smoke["prune"]["lod"]]
+    target = [round(v, 4) for v in smoke["prune"]["block_target"]]
+    S, lam = smoke["args"]["sparsity"], smoke["args"]["lam"]
+    blocks = [str(i + 1) for i in range(len(lod))]
+    txt(s, 9.6, 3.95, 9.3, 0.45, "Outliers per block (LOD, %)", size=22, bold=True)
+    ch = add_chart(s, XL_CHART_TYPE.COLUMN_CLUSTERED, 9.4, 4.35, 9.6, 2.45, blocks, [("LOD (%)", lod)], [VIOLET],
+                   "Chart: outlier ratio per block, smoke run", legend=None, fsize=18, gap=35)
+    label_skip(ch, 5)
+    ch.value_axis.major_unit = 1
+    txt(s, 9.6, 6.9, 9.3, 0.45, "OWL sparsity target per block", size=22, bold=True)
+    ch = add_chart(s, XL_CHART_TYPE.LINE_MARKERS, 9.4, 7.3, 9.6, 2.75, blocks,
+                   [("OWL target (our port)", target), ("S + λ", [S + lam] * len(lod)), ("S − λ", [S - lam] * len(lod))],
+                   [ORANGE, SLATE, SLATE], "Chart: OWL block sparsity target, smoke run", fsize=18)
+    for sr in list(ch.plots[0].series)[1:]:
+        sr.marker.style = XL_MARKER_STYLE.NONE
+        sr.format.line.width = Pt(2.5)
+        sr.format.line.dash_style = 4  # dash
+    ch.plots[0].series[0].marker.size = 7
+    ch.value_axis.minimum_scale = 0.35
+    ch.value_axis.maximum_scale = 0.65
+    ch.value_axis.major_unit = 0.1
+    ch.value_axis.tick_labels.number_format = "0%"
+    ch.value_axis.tick_labels.number_format_is_linked = False
+    label_skip(ch, 5)
+    txt(s, 9.6, 10.1, 9.3, 0.7, "SmolLM2-135M, 50% target, M = 5, λ = 0.08. CPU smoke test with 4 calibration samples, not a result.",
+        size=18, color=GRAY)
+    notes(s, "[0:40] Where we are. We ported OWL, Wanda, SparseGPT and magnitude pruning to current libraries, with 28 unit tests, and the full pipeline "
+             "runs end to end on a tiny model on CPU. The charts are from that smoke run: blocks with more outliers get a lower sparsity target. "
+             "It already showed one difference. The released code scales block sparsity into a band of width two lambda and then shifts the mean, "
+             "so some blocks fall outside the range the paper states. Here the last block gets 39 percent, below the 42 percent floor. "
+             "We keep the code's behaviour and report it. GPU runs are next.")
+
+    # ---- 10 extension motivation
+    s = content("3. Does it hold on new LLMs?", "The paper only tested LLaMA-1, 7B and up")
+    txt(s, 1.12, 3.95, 7.6, 0.5, "Pre-training tokens (trillions)", size=24, bold=True)
+    ch = add_chart(s, XL_CHART_TYPE.COLUMN_CLUSTERED, 0.95, 4.45, 7.7, 5.8, ["LLaMA-1", "Llama 3", "Qwen2.5"],
+                   [("Tokens (trillions)", [1.4, 15, 18])], [SLATE], "Chart: pre-training tokens", legend=None, labels='General"T"', gap=80)
+    color_points(ch, [SLATE, ORANGE, VIOLET])
+    ch.value_axis.maximum_scale = 20
+    ch.value_axis.major_unit = 5
+    # size ladder, log scale from 0.5B to 65B
+    import math
+    x0, per = 9.75, 3.82
+    pos = lambda b: x0 + (math.log10(b) - math.log10(0.5)) * per
+    txt(s, 9.75, 3.95, 9.2, 0.5, "Model sizes tested (parameters, log scale)", size=24, bold=True)
+    box(s, 9.6, 4.6, pos(7) - 9.6 - 0.12, 3.85, fill=TINT, radius=0.04)
+    txt(s, 9.8, 4.68, 4.2, 0.45, "not tested in the paper", size=20, color=GRAY)
+    ladder = [("OWL paper: LLaMA-1", SLATE, "FFFFFF", [7, 13, 30, 65]),
+              ("Ours: Qwen2.5", VIOLET, "FFFFFF", [0.5, 1.5, 3, 7]),
+              ("Ours: Llama 3.2 and 3.1", ORANGE, "FFFFFF", [1, 3, 8])]
+    for r, (label, fill, fg, sizes) in enumerate(ladder):
+        y = 5.2 + r * 1.1
+        for b in sizes:
+            chip(s, pos(b), y + 0.36, f"{b:g}B", w=0.88, h=0.56, fill=fill, color=fg, size=20)
+        lx = pos(sizes[0]) if r == 0 else 9.8
+        txt(s, lx, y, 6.5, 0.36, label, size=18, bold=True, color=fill if r else GRAY)
+    txt(s, 9.75, 8.7, 9.15, 1.6, ["Evidence on modern models is mixed. With SparseGPT at 70%, OWL nearly halves Llama-3-8B perplexity "
+                                  "(85.84 to 48.07), but it slightly hurts a 1B Llama 3 at 50%."], size=22)
+    txt(s, 1.12, 10.4, 17, 0.4, "Token counts: Touvron et al. 2023, Grattafiori et al. 2024, Qwen Team 2025. Evidence: Sieberling et al. 2025, Choenni et al. 2025.",
+        size=18, color=GRAY)
+    notes(s, "[0:40] Our extension. The paper shows the gain grows as models shrink, but only on LLaMA-1 from 7B to 65B, trained on at most 1.4 trillion tokens. "
+             "Llama 3 and Qwen2.5 saw 15 to 18 trillion. Nobody tested the trend below 7B, where it should matter most, and the existing evidence is mixed. "
+             "So we ask: does OWL still help small modern models?")
+
+    # ---- 11 extension experiments
+    s = content("3. Does it hold on new LLMs?", "Three experiments, seven models")
+    cards = [("E1", "Scaling within a family", ["7 models from 0.5B to 8B at 50%, 60% and 70%, uniform vs OWL.",
+                                                "We report the gain in log perplexity and add a shuffled OWL control."]),
+             ("E2", "Does the LOD predict the gain?", ["LOD of all 10 dense models: how uneven it is, and whether it forms a U.",
+                                                       "Spearman correlation with the OWL gain. Exploratory with 10 models."]),
+             ("E3", "Hyperparameter transfer", ["M and λ grid on Qwen2.5-1.5B and Llama-3.2-1B, picked on held-out C4.",
+                                                "A weak result should not just mean bad settings."])]
+    for i, (tag, head, body_lines) in enumerate(cards):
+        x = 1.12 + i * 6.05
+        box(s, x, 4.0, 5.65, 6.25, fill=TINT, radius=0.05)
+        chip(s, x + 0.35, 4.3, tag)
+        txt(s, x + 1.6, 4.25, 3.85, 0.95, head, size=24, bold=True, anchor="m", ls=1.1)
+        vy = 5.5
+        if i == 0:  # seven models growing in size
+            cx = x + 0.4
+            for k, (d, c) in enumerate(zip([0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9], [VIOLET, ORANGE, VIOLET, ORANGE, VIOLET, VIOLET, ORANGE])):
+                box(s, cx, vy + (1.1 - d), d, d, shape=MSO_SHAPE.OVAL, fill=c)
+                cx += d + 0.07
+        elif i == 1:  # U-shaped outlier distribution
+            for k, hgt in enumerate([1.1, 0.72, 0.45, 0.32, 0.28, 0.3, 0.36, 0.5, 0.78, 1.1]):
+                box(s, x + 0.4 + k * 0.49, vy + (1.1 - hgt), 0.38, hgt, fill=VIOLET)
+        else:  # M x lambda grid, paper default highlighted
+            for r in range(4):
+                for c in range(5):
+                    default = (r == 1 and c == 2)
+                    box(s, x + 0.4 + c * 0.6, vy - 0.08 + r * 0.31, 0.52, 0.25, fill=ORANGE if default else LVIOLET)
+            txt(s, x + 3.5, vy - 0.05, 1.95, 1.2, ["4 x 5 grid", "orange: paper default"], size=18, color=GRAY, anchor="m")
+        txt(s, x + 0.35, 6.95, 4.95, 3.2, body_lines, size=24, color="222222", after=12)
+    notes(s, "[0:50] Three experiments. E1 prunes seven models from two families at three sparsities, uniform versus OWL, and reports the gain in log "
+             "perplexity so small and large models are comparable. As a control we shuffle OWL's block sparsities: same values, wrong blocks. "
+             "If shuffled OWL does as well, the outlier story is not the reason. E2 asks whether the shape of the outlier distribution predicts the gain "
+             "across all ten models. E3 reruns the paper's hyperparameter grid on two small models, so a weak result is not just bad settings.")
+
+    # ---- 12 resources
+    s = content("4. What do we need?", "212 runs, about 26 A100 hours, no paid API")
+    txt(s, 1.12, 3.95, 8.0, 0.5, "Estimated A100 hours per experiment", size=24, bold=True)
+    ch = add_chart(s, XL_CHART_TYPE.BAR_CLUSTERED, 0.95, 4.4, 8.3, 4.15, ["E3", "E1", "R4 + E2", "R3", "R2", "R1"],
+                   [("A100 hours", [2, 15, 1, 3, 2, 3])], [VIOLET], "Chart: GPU hours per experiment", legend=None, labels="0", gap=45)
+    color_points(ch, [ORANGE, ORANGE, VIOLET, VIOLET, VIOLET, VIOLET])
+    ch.value_axis.maximum_scale = 18
+    ch.value_axis.major_unit = 6
+    box(s, 1.3, 8.52, 0.3, 0.3, fill=VIOLET)
+    txt(s, 1.7, 8.47, 2.6, 0.4, "Reproduction", size=18)
+    box(s, 4.0, 8.52, 0.3, 0.3, fill=ORANGE)
+    txt(s, 4.4, 8.47, 2.6, 0.4, "Extension", size=18)
+    stats = [("212", "pruning runs"), ("26 h", "estimated, 60 h budgeted"), ("$0", "API cost, open weights")]
+    for i, (big, small) in enumerate(stats):
+        x = 9.8 + i * 3.08
+        box(s, x, 4.0, 2.88, 1.85, fill=TINT, radius=0.08)
+        txt(s, x + 0.1, 4.12, 2.68, 0.85, big, font="Archivo Black", size=44, color=VIOLET, align="c", anchor="m", ls=1.0)
+        txt(s, x + 0.15, 5.0, 2.58, 0.8, small, size=18, align="c", color="222222", ls=1.1)
+    gpus = [("USF GAIVI cluster", "A100, H100 and L40S, free with a supervisor"),
+            ("Colab Pro, both accounts", "13 to 37 A100 hours a month"),
+            ("Backup", "Kaggle, Modal credit or a rented GPU (under $110)"),
+            ("GPU memory", "24 GB for 7B and 8B, 31 GB for 13B, 16 GB up to 3B")]
+    for i, (head, desc) in enumerate(gpus):
+        y = 6.1 + i * 0.66
+        box(s, 9.8, y + 0.14, 0.24, 0.24, shape=MSO_SHAPE.OVAL, fill=VIOLET)
+        txt(s, 10.25, y, 8.7, 0.55, [[(head + "  ", {"bold": True}), desc]], size=20, anchor="m")
+    steps = ["Dense check: 5.68", "R1 to R4", "E1 to E3", "Report: Dec 4"]
+    for i, label in enumerate(steps):
+        x = 1.12 + i * 4.55
+        box(s, x, 9.2, 3.75, 0.95, paras=label, font="Archivo Black", size=24)
+        if i < 3:
+            arrow(s, x + 3.87, 9.675, x + 4.43, 9.675)
+    notes(s, "[0:45] Resources. All models are open weights, so no paid API. The plan is 212 runs and about 26 A100 hours, and we budget 60 for zero-shot "
+             "evaluation and reruns. Most of it is E1. A 7B model needs a 24 GB GPU. We use USF's GAIVI cluster and Colab Pro on both accounts, with Kaggle "
+             "or a rented GPU as backup. Next is the dense baseline check, then R1 to R4, then the extension. The report is due December 4.")
+
+    # ---- 13 Q&A
+    txt(qa, 1.12, 9.55, 12, 0.6, "Thank you  ·  github.com/khangpt2k6/NLP_CLASS", size=26, color=GRAY)
+    notes(qa, "[0:05] Thank you. Questions? Total target: 7:40, which leaves 20 seconds of slack under the 8 minute limit.")
+
+    # ---- drop unused template slides, put Q&A last
+    lst = prs.slides._sldIdLst
+    ids = list(lst)
+    keep = {ids[0], ids[1], ids[57]} | set(ids[59:])
+    for sld in ids:
+        if sld not in keep:
+            prs.part.drop_rel(sld.rId)
+            lst.remove(sld)
+    qa_id = ids[57]
+    lst.remove(qa_id)
+    lst.append(qa_id)
+    prs.save(out)
+    print("saved", out, "slides:", len(prs.slides))
+
+
+if __name__ == "__main__":
+    build(sys.argv[1], sys.argv[2])
