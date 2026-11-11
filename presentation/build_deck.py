@@ -48,7 +48,7 @@ R1_ROWS = [("Dense", "dense"), ("Wanda", "wanda_uniform_s70"), ("OWL + Wanda", "
            ("SparseGPT", "sparsegpt_uniform_s70"), ("OWL + SparseGPT", "sparsegpt_owl_s70_M{M}_l0.08")]
 R1_MODELS = [("LLaMA-7B", "7B", "llama7b", 5, [5.68, 85.77, 24.55, 26.30, 19.49]),
              ("LLaMA-13B", "13B", "llama13b", 7, [5.09, 55.90, 17.17, 19.24, 14.55]),
-             ("OPT-6.7B", "OPT", "opt6.7b", 10, [10.86, 162.92, 40.22, 20.29, 22.48])]
+             ("OPT-6.7B", "OPT", "opt6.7b", 10, [10.13, 162.92, 40.22, 20.29, 22.48])]
 # label on the slide, file prefix in results/e1 and results/e2
 NEW_MODELS = [("Qwen 0.5B", "qwen2.5-0.5b"), ("Qwen 1.5B", "qwen2.5-1.5b"), ("Qwen 3B", "qwen2.5-3b"), ("Qwen 7B", "qwen2.5-7b"),
               ("Llama 1B", "llama3.2-1b"), ("Llama 3B", "llama3.2-3b"), ("Llama 8B", "llama3.1-8b")]
