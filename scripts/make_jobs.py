@@ -125,6 +125,39 @@ def e4():
     return jobs
 
 
+def talk():
+    """Smallest set that fills the presentation: perplexity only, no zero-shot.
+
+    Every job writes the same file as its twin in r1/r2/r4/e1/e2, so nothing here is run twice. The
+    r1 and e1 twins that ask for zero-shot redo a file that has none yet (see owlrepro.run).
+    """
+    jobs = []
+    # R1, Table 3 at 70%
+    for short in ["llama7b", "opt6.7b", "llama13b"]:
+        jobs.append(job("r1", short, "dense"))
+        jobs.append(job("r1", short, "magnitude"))
+        for method in ["wanda", "sparsegpt"]:
+            for alloc in ["uniform", "owl"]:
+                jobs.append(job("r1", short, method, alloc))
+    # E2, dense LOD of all ten models (no evaluation, quick)
+    jobs += e2()
+    # E1 at 70% only, without the shuffle control and the extra seeds
+    for short in NEW_MODELS:
+        jobs.append(job("e1", short, "dense"))
+        for method in ["wanda", "sparsegpt"]:
+            for alloc in ["uniform", "owl"]:
+                jobs.append(job("e1", short, method, alloc, 0.7))
+    # R4 on LLaMA-7B only (LLaMA-13B needs about 31 GB)
+    jobs += [j for j in r4() if "--model huggyllama/llama-7b " in j]
+    # R2: uniform vs OWL over the whole sweep, the other allocations at 70% only
+    for s in [0.4, 0.5, 0.6, 0.7, 0.8]:
+        for alloc in ["uniform", "owl"]:
+            jobs.append(job("r2", "llama7b", "wanda", alloc, s))
+    for alloc in ["global", "er", "er_plus", "owl_inv"]:
+        jobs.append(job("r2", "llama7b", "wanda", alloc, 0.7))
+    return jobs
+
+
 def main():
     os.makedirs("experiments", exist_ok=True)
     groups = {"r1": r1(), "r2": r2(), "r4": r4(), "e1": e1(), "e2": e2(), "e3": e3(), "e4": e4()}
@@ -135,6 +168,11 @@ def main():
         print(f"{g}: {len(jobs)} jobs")
         total += len(jobs)
     print(f"total {total}")
+    # the presentation cut is a subset of the groups above, so it is not part of the total
+    jobs = talk()
+    with open("experiments/talk.txt", "w", newline="\n") as f:
+        f.write("\n".join(jobs) + "\n")
+    print(f"talk: {len(jobs)} jobs (subset of the above, perplexity only)")
 
 
 if __name__ == "__main__":

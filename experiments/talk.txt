@@ -1,0 +1,84 @@
+--model huggyllama/llama-7b --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama7b_dense.json
+--model huggyllama/llama-7b --method magnitude --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama7b_magnitude_uniform_s70.json
+--model huggyllama/llama-7b --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama7b_wanda_uniform_s70.json
+--model huggyllama/llama-7b --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama7b_wanda_owl_s70_M5_l0.08.json
+--model huggyllama/llama-7b --method sparsegpt --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama7b_sparsegpt_uniform_s70.json
+--model huggyllama/llama-7b --method sparsegpt --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama7b_sparsegpt_owl_s70_M5_l0.08.json
+--model facebook/opt-6.7b --method dense --alloc uniform --sparsity 0.7 --M 10 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/opt6.7b_dense.json
+--model facebook/opt-6.7b --method magnitude --alloc uniform --sparsity 0.7 --M 10 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/opt6.7b_magnitude_uniform_s70.json
+--model facebook/opt-6.7b --method wanda --alloc uniform --sparsity 0.7 --M 10 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/opt6.7b_wanda_uniform_s70.json
+--model facebook/opt-6.7b --method wanda --alloc owl --sparsity 0.7 --M 10 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/opt6.7b_wanda_owl_s70_M10_l0.08.json
+--model facebook/opt-6.7b --method sparsegpt --alloc uniform --sparsity 0.7 --M 10 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/opt6.7b_sparsegpt_uniform_s70.json
+--model facebook/opt-6.7b --method sparsegpt --alloc owl --sparsity 0.7 --M 10 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/opt6.7b_sparsegpt_owl_s70_M10_l0.08.json
+--model huggyllama/llama-13b --method dense --alloc uniform --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama13b_dense.json
+--model huggyllama/llama-13b --method magnitude --alloc uniform --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama13b_magnitude_uniform_s70.json
+--model huggyllama/llama-13b --method wanda --alloc uniform --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama13b_wanda_uniform_s70.json
+--model huggyllama/llama-13b --method wanda --alloc owl --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama13b_wanda_owl_s70_M7_l0.08.json
+--model huggyllama/llama-13b --method sparsegpt --alloc uniform --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama13b_sparsegpt_uniform_s70.json
+--model huggyllama/llama-13b --method sparsegpt --alloc owl --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval wikitext2 --out results/r1/llama13b_sparsegpt_owl_s70_M7_l0.08.json
+--model huggyllama/llama-7b --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/llama7b_dense.json
+--model huggyllama/llama-13b --method dense --alloc uniform --sparsity 0.7 --M 7 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/llama13b_dense.json
+--model facebook/opt-6.7b --method dense --alloc uniform --sparsity 0.7 --M 10 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/opt6.7b_dense.json
+--model Qwen/Qwen2.5-0.5B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/qwen2.5-0.5b_dense.json
+--model Qwen/Qwen2.5-1.5B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/qwen2.5-1.5b_dense.json
+--model Qwen/Qwen2.5-3B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/qwen2.5-3b_dense.json
+--model Qwen/Qwen2.5-7B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/qwen2.5-7b_dense.json
+--model meta-llama/Llama-3.2-1B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/llama3.2-1b_dense.json
+--model meta-llama/Llama-3.2-3B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/llama3.2-3b_dense.json
+--model meta-llama/Llama-3.1-8B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval none --lod 3,5,7,10 --out results/e2/llama3.1-8b_dense.json
+--model Qwen/Qwen2.5-0.5B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-0.5b_dense.json
+--model Qwen/Qwen2.5-0.5B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-0.5b_wanda_uniform_s70.json
+--model Qwen/Qwen2.5-0.5B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-0.5b_wanda_owl_s70_M5_l0.08.json
+--model Qwen/Qwen2.5-0.5B --method sparsegpt --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-0.5b_sparsegpt_uniform_s70.json
+--model Qwen/Qwen2.5-0.5B --method sparsegpt --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-0.5b_sparsegpt_owl_s70_M5_l0.08.json
+--model Qwen/Qwen2.5-1.5B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-1.5b_dense.json
+--model Qwen/Qwen2.5-1.5B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-1.5b_wanda_uniform_s70.json
+--model Qwen/Qwen2.5-1.5B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-1.5b_wanda_owl_s70_M5_l0.08.json
+--model Qwen/Qwen2.5-1.5B --method sparsegpt --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-1.5b_sparsegpt_uniform_s70.json
+--model Qwen/Qwen2.5-1.5B --method sparsegpt --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-1.5b_sparsegpt_owl_s70_M5_l0.08.json
+--model Qwen/Qwen2.5-3B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-3b_dense.json
+--model Qwen/Qwen2.5-3B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-3b_wanda_uniform_s70.json
+--model Qwen/Qwen2.5-3B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-3b_wanda_owl_s70_M5_l0.08.json
+--model Qwen/Qwen2.5-3B --method sparsegpt --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-3b_sparsegpt_uniform_s70.json
+--model Qwen/Qwen2.5-3B --method sparsegpt --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-3b_sparsegpt_owl_s70_M5_l0.08.json
+--model Qwen/Qwen2.5-7B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-7b_dense.json
+--model Qwen/Qwen2.5-7B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-7b_wanda_uniform_s70.json
+--model Qwen/Qwen2.5-7B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-7b_wanda_owl_s70_M5_l0.08.json
+--model Qwen/Qwen2.5-7B --method sparsegpt --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-7b_sparsegpt_uniform_s70.json
+--model Qwen/Qwen2.5-7B --method sparsegpt --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/qwen2.5-7b_sparsegpt_owl_s70_M5_l0.08.json
+--model meta-llama/Llama-3.2-1B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.2-1b_dense.json
+--model meta-llama/Llama-3.2-1B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.2-1b_wanda_uniform_s70.json
+--model meta-llama/Llama-3.2-1B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.2-1b_wanda_owl_s70_M5_l0.08.json
+--model meta-llama/Llama-3.2-1B --method sparsegpt --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.2-1b_sparsegpt_uniform_s70.json
+--model meta-llama/Llama-3.2-1B --method sparsegpt --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.2-1b_sparsegpt_owl_s70_M5_l0.08.json
+--model meta-llama/Llama-3.2-3B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.2-3b_dense.json
+--model meta-llama/Llama-3.2-3B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.2-3b_wanda_uniform_s70.json
+--model meta-llama/Llama-3.2-3B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.2-3b_wanda_owl_s70_M5_l0.08.json
+--model meta-llama/Llama-3.2-3B --method sparsegpt --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.2-3b_sparsegpt_uniform_s70.json
+--model meta-llama/Llama-3.2-3B --method sparsegpt --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.2-3b_sparsegpt_owl_s70_M5_l0.08.json
+--model meta-llama/Llama-3.1-8B --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.1-8b_dense.json
+--model meta-llama/Llama-3.1-8B --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.1-8b_wanda_uniform_s70.json
+--model meta-llama/Llama-3.1-8B --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.1-8b_wanda_owl_s70_M5_l0.08.json
+--model meta-llama/Llama-3.1-8B --method sparsegpt --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.1-8b_sparsegpt_uniform_s70.json
+--model meta-llama/Llama-3.1-8B --method sparsegpt --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/e1/llama3.1-8b_sparsegpt_owl_s70_M5_l0.08.json
+--model huggyllama/llama-7b --method dense --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_dense.json
+--model huggyllama/llama-7b --method magnitude --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_magnitude_uniform_s60_lod.json
+--model huggyllama/llama-7b --method wanda --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_wanda_uniform_s60_lod.json
+--model huggyllama/llama-7b --method sparsegpt --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_sparsegpt_uniform_s60_lod.json
+--model huggyllama/llama-7b --method magnitude --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_magnitude_uniform_s70_lod.json
+--model huggyllama/llama-7b --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_wanda_uniform_s70_lod.json
+--model huggyllama/llama-7b --method sparsegpt --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --lod 5,7 --out results/r4/llama7b_sparsegpt_uniform_s70_lod.json
+--model huggyllama/llama-7b --method wanda --alloc uniform --sparsity 0.4 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_uniform_s40.json
+--model huggyllama/llama-7b --method wanda --alloc owl --sparsity 0.4 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_owl_s40_M5_l0.08.json
+--model huggyllama/llama-7b --method wanda --alloc uniform --sparsity 0.5 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_uniform_s50.json
+--model huggyllama/llama-7b --method wanda --alloc owl --sparsity 0.5 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_owl_s50_M5_l0.08.json
+--model huggyllama/llama-7b --method wanda --alloc uniform --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_uniform_s60.json
+--model huggyllama/llama-7b --method wanda --alloc owl --sparsity 0.6 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_owl_s60_M5_l0.08.json
+--model huggyllama/llama-7b --method wanda --alloc uniform --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_uniform_s70.json
+--model huggyllama/llama-7b --method wanda --alloc owl --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_owl_s70_M5_l0.08.json
+--model huggyllama/llama-7b --method wanda --alloc uniform --sparsity 0.8 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_uniform_s80.json
+--model huggyllama/llama-7b --method wanda --alloc owl --sparsity 0.8 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_owl_s80_M5_l0.08.json
+--model huggyllama/llama-7b --method wanda --alloc global --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_global_s70.json
+--model huggyllama/llama-7b --method wanda --alloc er --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_er_s70.json
+--model huggyllama/llama-7b --method wanda --alloc er_plus --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_er_plus_s70.json
+--model huggyllama/llama-7b --method wanda --alloc owl_inv --sparsity 0.7 --M 5 --lam 0.08 --calib c4 --eval wikitext2 --out results/r2/llama7b_wanda_owl_inv_s70_M5_l0.08.json

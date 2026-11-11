@@ -5,7 +5,7 @@ Example:
         --sparsity 0.7 --M 5 --lam 0.08 --out results/r1/llama7b_wanda_owl_70.json
 
 If the output file already exists the job is skipped, so a preempted SLURM array can simply be
-resubmitted.
+resubmitted. The one exception: a job with --zeroshot reruns over a file that has no zero-shot results.
 """
 from __future__ import annotations
 
@@ -70,11 +70,30 @@ def env_info() -> dict:
     return info
 
 
+def already_done(out: str, zeroshot: str = "") -> bool:
+    """True if `out` exists and holds what the job asks for.
+
+    A perplexity-only result (from experiments/talk.txt) does not count for a job that also wants
+    zero-shot accuracy, so that job runs again and replaces the file.
+    """
+    if not os.path.exists(out):
+        return False
+    if not zeroshot:
+        return True
+    try:
+        with open(out) as f:
+            return bool(json.load(f).get("zeroshot"))
+    except (OSError, ValueError):
+        return False
+
+
 def main(argv=None) -> dict | None:
     args = parse_args(argv)
-    if os.path.exists(args.out) and not args.overwrite:
+    if not args.overwrite and already_done(args.out, args.zeroshot):
         print(f"skip, {args.out} exists")
         return None
+    if os.path.exists(args.out) and not args.overwrite:
+        print(f"{args.out} has no zero-shot results yet, running the job again")
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)

@@ -11,6 +11,7 @@ Authors: Tuan Khang Phan, Xuan Gia Han Nguyen (University of South Florida).
 - [scripts/make_jobs.py](scripts/make_jobs.py): writes the job lists in [experiments/](experiments/)
 - [slurm/run_array.sbatch](slurm/run_array.sbatch): runs a job list as a SLURM array on GAIVI
 - [scripts/collect.py](scripts/collect.py): gathers `results/*/*.json` into `results/summary.csv`
+- [scripts/estimate.py](scripts/estimate.py): rough run time of each job list on a given GPU
 - [docs/gpu_resources.md](docs/gpu_resources.md): where to get GPUs
 - [tests/](tests/): unit tests on tiny random models (CPU, no downloads)
 
@@ -63,6 +64,25 @@ Check the GPU type and partition names with `sinfo` first. 7B and 8B models need
 | e2 | Dense LOD of all ten models for M in 3, 5, 7, 10 | 10 |
 | e3 | M and lambda grid on Qwen2.5-1.5B and Llama-3.2-1B | 40 |
 | e4 | Vietnamese vs English calibration | 18 |
+
+## Presentation cut and run time
+`experiments/talk.txt` holds the 84 perplexity-only jobs that fill the presentation: all of R1, the dense LOD of the ten models, E1 at 70% only, R4 on LLaMA-7B and a thin R2. Every job writes the same file as its twin in the full groups, so nothing runs twice. A full-group job that asks for zero-shot runs again over a perplexity-only file.
+
+```
+python scripts/estimate.py                 # hours left per group on an A100
+python scripts/estimate.py talk --gpu L4 --models llama7b opt6.7b
+```
+The estimate is a cost model, not a measurement, so it can be 2x off. After three finished jobs on the same GPU it rescales itself from their measured times.
+
+| Jobs | A100 | L4 | T4 |
+|---|---|---|---|
+| talk, all 84 | 7.4 h | 16.1 h | LLaMA-13B, 7B and 8B do not fit |
+| talk, LLaMA-7B + OPT-6.7B (35) | 3.5 h | 7.7 h | |
+| talk, LLaMA-13B (7) | 1.2 h | does not fit | |
+| talk, seven Qwen2.5 / Llama-3.x models (42) | 2.8 h | 5.7 h | 3.3 h for the five up to 3B |
+| full plan without e4 (232) | 26.6 h | 59.5 h | |
+
+Jobs are independent, so two people can run the notebook at the same time with different `models=[...]` and commit both sets of result files. The notebook also runs on Colab (see its first cell): it keeps the model cache on the VM disk and copies finished results to Google Drive.
 
 ## Kaggle (models up to 3B)
 In a notebook with GPU T4 x2 and internet on:
