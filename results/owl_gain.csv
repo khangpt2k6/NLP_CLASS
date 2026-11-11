@@ -13,3 +13,5 @@ e1,meta-llama/Llama-3.2-1B,sparsegpt,0.7,5.0,0.08,0,c4,9.757,129.672,134.931,-0.
 e1,meta-llama/Llama-3.2-1B,wanda,0.7,5.0,0.08,0,c4,9.757,389.025,415.103,-0.0649
 e1,meta-llama/Llama-3.2-3B,sparsegpt,0.7,5.0,0.08,0,c4,7.817,67.64,58.08,0.1524
 e1,meta-llama/Llama-3.2-3B,wanda,0.7,5.0,0.08,0,c4,7.817,143.472,123.411,0.1506
+r1,huggyllama/llama-7b,sparsegpt,0.7,5.0,0.08,0,c4,5.677,26.397,18.889,0.3346
+r1,huggyllama/llama-7b,wanda,0.7,5.0,0.08,0,c4,5.677,84.837,24.315,1.2496

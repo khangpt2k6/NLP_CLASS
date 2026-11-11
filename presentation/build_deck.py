@@ -112,10 +112,10 @@ def e1_rows():
 
 
 def done_runs():
-    """Number of finished runs and their total GPU hours (the smoke tests do not count)."""
-    secs = [json.loads(Path(p).read_text())["total_seconds"] for p in glob.glob(str(RESULTS / "*" / "*.json"))
-            if Path(p).parent.name != "smoke"]
-    return len(secs), sum(secs) / 3600
+    """Number of finished runs, their total GPU hours and the GPUs used (the smoke tests do not count)."""
+    runs = [json.loads(Path(p).read_text()) for p in glob.glob(str(RESULTS / "*" / "*.json")) if Path(p).parent.name != "smoke"]
+    gpus = sorted({"A100" if "A100" in g else g.replace("NVIDIA ", "") for g in (r["env"].get("gpu") for r in runs) if g})
+    return len(runs), sum(r["total_seconds"] for r in runs) / 3600, " and ".join(gpus)
 
 
 # ---------------------------------------------------------------- text
@@ -591,7 +591,7 @@ def build(template, out):
              "distribution before and after pruning. [Fill in our numbers before the talk.]")
 
     # ---- 9 status
-    n_done, gpu_hours = done_runs()
+    n_done, gpu_hours, gpu_names = done_runs()
     rows_e1 = e1_rows()
     paper_done = r1["dense"] is not None
     example = load("e1/qwen2.5-3b_wanda_owl_s70_M5_l0.08.json")
@@ -606,8 +606,9 @@ def build(template, out):
     s = content("2. Can we reproduce it?", headline)
     status = [(True, "Our port of OWL, Wanda, SparseGPT and magnitude pruning"),
               (True, "36 unit tests pass, CPU smoke run works end to end"),
-              (True, f"{n_done} GPU runs done: E1 at 70% and E2 on {len(rows_e1)} models" if n_done else "Job lists written for every experiment"),
-              (paper_done, "LLaMA-7B dense check and R1 runs done" if paper_done else "Next: LLaMA-7B, OPT-6.7B and LLaMA-13B for R1 to R4")]
+              (True, f"{n_done} GPU runs done on Colab ({gpu_names}), {gpu_hours:.1f} GPU hours" if n_done else "Job lists written for every experiment"),
+              (paper_done, f"Dense LLaMA-7B check: perplexity {r1['dense']:.2f}, paper 5.68" if paper_done
+               else "Next: LLaMA-7B, OPT-6.7B and LLaMA-13B for R1 to R4")]
     for i, (done, line) in enumerate(status):
         y = 4.0 + i * 0.86
         box(s, 1.12, y + 0.08, 0.56, 0.56, shape=MSO_SHAPE.OVAL, fill=VIOLET if done else None, line=None if done else VIOLET,
@@ -799,7 +800,7 @@ def build(template, out):
         txt(s, x + 0.15, 5.0, 2.58, 0.8, small, size=18, align="c", color="222222", ls=1.1)
     pic_fit(s, "huggingface.png", 9.8 + 2 * 3.08 + 0.2, 4.22, 0.6, 0.6)
     gpus = [("usf_box.png", "USF GAIVI cluster", "A100, H100 and L40S, free with a supervisor"),
-            ("colab.png", "Colab Pro", "one L4 (22 GB) ran the seven-model extension") if n_done
+            ("colab.png", "Colab Pro", f"all {n_done} runs so far, on {gpu_names}") if n_done
             else ("colab.png", "Colab Pro, both accounts", "13 to 37 A100 hours a month"),
             ("kaggle.png", "Backup", "Kaggle, Modal credit or a rented GPU (under $110)"),
             ("nvidia.png", "GPU memory", "24 GB for 7B and 8B, 31 GB for 13B")]
@@ -816,7 +817,7 @@ def build(template, out):
         if i < 3:
             arrow(s, x + 3.87, 9.675, x + 4.43, 9.675)
     notes(s, "[0:35] Resources. All models are open weights, so no paid API. The plan is 212 runs and about 26 A100 hours. "
-             + (f"So far {n_done} runs are done in {gpu_hours:.1f} GPU hours on a Colab L4. " if n_done else "")
+             + (f"So far {n_done} runs are done in {gpu_hours:.1f} GPU hours on Colab. " if n_done else "")
              + "A 7B model needs a 24 GB GPU and LLaMA-13B about 31. We use Colab Pro and USF's GAIVI cluster, with Kaggle or a rented GPU as backup. "
              + ("" if paper_done else "Next are the three paper models for R1 to R4, then the rest of the extension. ")
              + "The report is due December 4.")
