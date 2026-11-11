@@ -12,6 +12,7 @@ import json
 import sys
 from pathlib import Path
 
+from PIL import Image
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
@@ -34,6 +35,12 @@ LORANGE = "FBC38D"
 TEAL = "0E9F9A"
 SLATE = "8A8696"
 RED = "D6336C"
+
+ASSETS = Path(__file__).resolve().parent / "assets"
+ALT = {"usf.png": "University of South Florida logo", "usf_box.png": "USF logo", "meta.png": "Meta logo", "qwen.png": "Qwen logo",
+       "huggingface.png": "Hugging Face logo", "pytorch.png": "PyTorch logo", "colab.png": "Google Colab logo", "kaggle.png": "Kaggle logo",
+       "nvidia.png": "NVIDIA logo", "github.png": "GitHub logo", "qr_repo.png": "QR code for the project repository",
+       "owl_figure1.png": "Figure 1 of the OWL paper: OWL and uniform layerwise sparsity over the outlier distribution"}
 
 ALIGN = {"l": PP_ALIGN.LEFT, "c": PP_ALIGN.CENTER, "r": PP_ALIGN.RIGHT}
 ANCHOR = {"t": MSO_ANCHOR.TOP, "m": MSO_ANCHOR.MIDDLE, "b": MSO_ANCHOR.BOTTOM}
@@ -121,6 +128,30 @@ def arrow(slide, x1, y1, x2, y2, color=INK, width=4):
     ln = c.line._get_or_add_ln()
     ln.append(ln.makeelement(qn("a:tailEnd"), {"type": "triangle", "w": "med", "len": "med"}))
     return c
+
+
+def pic(slide, name, x, y, h=None, w=None):
+    kw = {}
+    if h:
+        kw["height"] = Inches(h)
+    if w:
+        kw["width"] = Inches(w)
+    p = slide.shapes.add_picture(str(ASSETS / name), Inches(x), Inches(y), **kw)
+    p.name = ALT.get(name, name)
+    p._element.nvPicPr.cNvPr.set("descr", ALT.get(name, name))
+    return p
+
+
+def pic_fit(slide, name, x, y, bw, bh):
+    """Place a picture centred inside a bw x bh box, keeping its aspect ratio."""
+    iw, ih = Image.open(ASSETS / name).size
+    k = min(bw / iw, bh / ih)
+    return pic(slide, name, x + (bw - iw * k) / 2, y + (bh - ih * k) / 2, w=iw * k)
+
+
+def badge(slide, x, y, d, icon, fill=INK):
+    box(slide, x, y, d, d, shape=MSO_SHAPE.OVAL, fill=fill)
+    pic_fit(slide, icon, x + d * 0.25, y + d * 0.25, d * 0.5, d * 0.5)
 
 
 def chip(slide, x, y, label, w=1.05, h=0.62, fill=LAV, color=INK, size=24):
@@ -332,6 +363,7 @@ def build(template, out):
         p.find(qn("a:r")).find(qn("a:t")).text = nm
         body.append(p)
     who.width = Inches(9.5)
+    pic(cover, "usf.png", 1.12, 10.0, h=0.56)
     notes(cover, "[0:15] Hi, we are Khang and Han. We are reproducing OWL, a pruning paper from ICML 2024, "
                  "and testing whether its main idea still helps on small modern language models.")
 
@@ -342,6 +374,9 @@ def build(template, out):
     for name, line in (("TextBox 23", "One-shot pruning and the OWL idea"), ("TextBox 24", "Four claims, four experiments"),
                        ("TextBox 25", "Our extension to Qwen2.5 and Llama 3"), ("TextBox 26", "Models, GPU hours, timeline")):
         set_lines(shape_named(toc, name), [line])
+    for (bx, by), icon in zip(((2.05, 3.36), (9.32, 3.36), (4.86, 7.05), (12.13, 7.05)),
+                              ("icon_scissors.png", "icon_repeat.png", "icon_sprout.png", "icon_cpu.png")):
+        badge(toc, bx + 5.62 - 0.55, by - 0.5, 1.05, icon)
     notes(toc, "[0:15] Four parts: what the paper claims, how we reproduce it, our extension, and the resources we need.")
 
     # ---- 3 the problem
@@ -381,28 +416,24 @@ def build(template, out):
         txt(s, x + 0.3, 6.3, 5.1, 0.55, formula, size=24, bold=True, color=VIOLET)
         if i < 2:
             arrow(s, x + 5.7, 5.5, x + 6.0, 5.5, width=3)
-    n = 12
-    shades_owl = ["F3E8FF", "D8B4FE", "A855F7", "9333EA", "7E22CE", "7E22CE", "7E22CE", "7E22CE", "9333EA", "A855F7", "D8B4FE", "F3E8FF"]
-    for row, (label, shades, right) in enumerate((("Uniform", ["A855F7"] * n, "70% in every block"), ("OWL", shades_owl, "70% on average"))):
-        y = 7.5 + row * 1.2
-        txt(s, 1.12, y, 2.3, 0.9, label, size=30, bold=True, anchor="m")
-        for k in range(n):
-            box(s, 3.5 + k * 0.98, y, 0.86, 0.9, fill=shades[k], line="6B21A8" if shades[k] == "F3E8FF" else None)
-        txt(s, 15.5, y, 3.5, 0.9, right, size=24, anchor="m")
-    txt(s, 3.5, 9.95, 6.0, 0.4, "Transformer blocks, first to last", size=20, color=GRAY)
-    txt(s, 9.6, 9.95, 5.6, 0.4, "Illustration. Darker means pruned more.", size=20, color=GRAY, align="r")
+    box(s, 1.12, 7.25, 12.3, 3.05, fill="FFFFFF", line=LINE, radius=0.04)
+    pic_fit(s, "owl_figure1.png", 1.32, 7.4, 11.9, 2.75)
+    txt(s, 13.85, 7.3, 5.05, 2.9, [[("Bars ", {"bold": True}), "are the outlier share of each block."],
+                                   [("Orange line ", {"bold": True, "color": ORANGE}), "is OWL's sparsity. It dips where the bars are tall."],
+                                   [("Dashed line ", {"bold": True}), "is uniform 70%."]], size=22, after=8, anchor="m")
+    txt(s, 1.12, 10.42, 14, 0.4, "Figure 1 of Yin et al. 2024 (LLaMA-7B, 13B, 30B at 70% sparsity).", size=20, color=GRAY)
     notes(s, "[0:45] OWL asks whether every layer should lose the same share. It uses the Wanda score, input norm times weight magnitude. "
              "For each Transformer block it counts outliers, weights whose score is more than M times the block average. "
              "That gives the layerwise outlier distribution, LOD. Blocks with more outliers are pruned less, and block sparsity stays "
-             "in a narrow band around the target, so the total is unchanged. In dense LLaMA the first and last blocks hold more outliers, "
-             "so they keep more weights.")
+             "in a narrow band around the target, so the total is unchanged. This is the paper's Figure 1: bars are outliers per block, "
+             "the orange line is OWL's sparsity, and it dips where the bars are tall.")
 
     # ---- 5 claims
     s = content("1. What does OWL claim?", "Four claims we test")
     claims = [("C1", "85.77 → 24.55", "OWL beats uniform sparsity at 70% (LLaMA-7B perplexity, Wanda). On OPT-6.7B it hurts SparseGPT."),
               ("C2", "61.22 vs 6.62", "The gain grows as models shrink: perplexity drop with Wanda at 7B vs 65B."),
               ("C3", "39.4% → 46.5%", "Zero-shot accuracy improves too. Mean of 7 tasks, LLaMA-7B at 70%, Wanda."),
-              ("C4", "U-shaped", "Outliers are not spread evenly across blocks, and good pruning methods keep them.")]
+              ("C4", "Not uniform", "Outliers concentrate in some blocks (LOD), and good pruning methods keep them.")]
     for i, (tag, big, desc) in enumerate(claims):
         x = 1.12 + (i % 2) * 9.0
         y = 4.05 + (i // 2) * 3.15
@@ -412,8 +443,8 @@ def build(template, out):
         txt(s, x + 0.35, y + 1.35, 8.0, 1.4, desc, size=24, color="222222")
     notes(s, "[0:40] We test four claims. One, OWL beats uniform sparsity at 70 percent: with Wanda on LLaMA-7B perplexity falls from 85.77 to 24.55. "
              "There is one exception we also check, SparseGPT on OPT gets slightly worse. Two, the gain grows as models shrink, 61 points at 7B "
-             "but under 7 at 65B. Three, zero-shot accuracy improves, 39.4 to 46.5 on average. Four, outliers are unevenly spread, "
-             "roughly a U shape across blocks.")
+             "but under 7 at 65B. Three, zero-shot accuracy improves, 39.4 to 46.5 on average. Four, outliers are unevenly spread "
+             "across blocks, and good pruning methods keep them.")
 
     # ---- 6 reproduction plan
     s = content("2. Can we reproduce it?", "Four experiments, one per claim")
@@ -476,7 +507,7 @@ def build(template, out):
             ["OWL + SparseGPT", ("48.03", P), ("[__]", O)]]
     add_table(s, 11.75, 4.5, [4.2, 1.5, 1.5], rows, row_h=0.6, size=20, head_size=20, name="Table: zero-shot paper vs ours")
     box(s, 11.75, 8.4, 7.2, 1.85, fill=TINT, radius=0.08)
-    txt(s, 12.05, 8.5, 6.7, 1.7, [[("R4: ", {"bold": True}), "outliers per block before and after pruning. We expect a U shape that survives pruning. Ours: [__]"]],
+    txt(s, 12.05, 8.5, 6.7, 1.7, [[("R4: ", {"bold": True}), "outliers per block before and after pruning. We expect the same uneven shape to survive pruning. Ours: [__]"]],
         size=22, anchor="m")
     txt(s, 1.12, 10.4, 14, 0.4, "Paper numbers from Yin et al. 2024, Tables 4 and 8. OWL-inverse gives outlier-rich blocks more sparsity.", size=20, color=GRAY)
     notes(s, "[0:40] R2 is the sweep. On a log axis the methods are close up to 50 percent and split after 60. OWL-inverse, which gives outlier-rich "
@@ -490,12 +521,16 @@ def build(template, out):
               (True, "Job lists written for every experiment"),
               (False, "Next: dense LLaMA-7B check (5.68), then R1 to R4 on GPU")]
     for i, (done, line) in enumerate(status):
-        y = 4.05 + i * 0.95
+        y = 4.0 + i * 0.86
         box(s, 1.12, y + 0.08, 0.56, 0.56, shape=MSO_SHAPE.OVAL, fill=VIOLET if done else None, line=None if done else VIOLET,
             paras="✓" if done else "", font="Arial", size=22, color="FFFFFF", bold=True, inset=0)
         txt(s, 1.95, y, 6.9, 0.8, line, size=24, anchor="m", bold=not done)
-    box(s, 1.12, 8.0, 7.75, 2.25, fill=TINT, radius=0.07)
-    txt(s, 1.42, 8.0, 7.2, 2.25, [[("Found while porting: ", {"bold": True}),
+    pic_fit(s, "pytorch.png", 1.12, 9.72, 0.5, 0.56)
+    txt(s, 1.75, 9.72, 2.4, 0.56, "PyTorch 2.11", size=22, anchor="m")
+    pic_fit(s, "huggingface.png", 4.25, 9.72, 0.6, 0.56)
+    txt(s, 4.98, 9.72, 3.6, 0.56, "Transformers 5.5", size=22, anchor="m")
+    box(s, 1.12, 7.5, 7.75, 2.0, fill=TINT, radius=0.07)
+    txt(s, 1.42, 7.5, 7.2, 2.0, [[("Found while porting: ", {"bold": True}),
         "the released code scales block sparsity into a band 2λ wide, then shifts the mean to S. Some blocks leave the paper's stated range S ± λ."]],
         size=22, anchor="m")
     smoke = json.loads((Path(__file__).resolve().parent.parent / "results/smoke/smollm_wanda_owl_50.json").read_text())
@@ -554,7 +589,8 @@ def build(template, out):
         for b in sizes:
             chip(s, pos(b), y + 0.36, f"{b:g}B", w=0.88, h=0.56, fill=fill, color=fg, size=20)
         lx = pos(sizes[0]) if r == 0 else 9.8
-        txt(s, lx, y, 6.5, 0.36, label, size=18, bold=True, color=fill if r else GRAY)
+        pic_fit(s, "qwen.png" if r == 1 else "meta.png", lx, y - 0.02, 0.5, 0.36)
+        txt(s, lx + 0.6, y, 6.0, 0.36, label, size=18, bold=True, color=fill if r else GRAY)
     txt(s, 9.75, 8.7, 9.15, 1.6, ["Evidence on modern models is mixed. With SparseGPT at 70%, OWL nearly halves Llama-3-8B perplexity "
                                   "(85.84 to 48.07), but it slightly hurts a 1B Llama 3 at 50%."], size=22)
     txt(s, 1.12, 10.4, 17, 0.4, "Token counts: Touvron et al. 2023, Grattafiori et al. 2024, Qwen Team 2025. Evidence: Sieberling et al. 2025, Choenni et al. 2025.",
@@ -615,14 +651,15 @@ def build(template, out):
         box(s, x, 4.0, 2.88, 1.85, fill=TINT, radius=0.08)
         txt(s, x + 0.1, 4.12, 2.68, 0.85, big, font="Archivo Black", size=44, color=VIOLET, align="c", anchor="m", ls=1.0)
         txt(s, x + 0.15, 5.0, 2.58, 0.8, small, size=18, align="c", color="222222", ls=1.1)
-    gpus = [("USF GAIVI cluster", "A100, H100 and L40S, free with a supervisor"),
-            ("Colab Pro, both accounts", "13 to 37 A100 hours a month"),
-            ("Backup", "Kaggle, Modal credit or a rented GPU (under $110)"),
-            ("GPU memory", "24 GB for 7B and 8B, 31 GB for 13B, 16 GB up to 3B")]
-    for i, (head, desc) in enumerate(gpus):
+    pic_fit(s, "huggingface.png", 9.8 + 2 * 3.08 + 0.2, 4.22, 0.6, 0.6)
+    gpus = [("usf_box.png", "USF GAIVI cluster", "A100, H100 and L40S, free with a supervisor"),
+            ("colab.png", "Colab Pro, both accounts", "13 to 37 A100 hours a month"),
+            ("kaggle.png", "Backup", "Kaggle, Modal credit or a rented GPU (under $110)"),
+            ("nvidia.png", "GPU memory", "24 GB for 7B and 8B, 31 GB for 13B")]
+    for i, (logo, head, desc) in enumerate(gpus):
         y = 6.1 + i * 0.66
-        box(s, 9.8, y + 0.14, 0.24, 0.24, shape=MSO_SHAPE.OVAL, fill=VIOLET)
-        txt(s, 10.25, y, 8.7, 0.55, [[(head + "  ", {"bold": True}), desc]], size=20, anchor="m")
+        pic_fit(s, logo, 9.8, y + 0.05, 0.62, 0.45)
+        txt(s, 10.62, y, 8.3, 0.55, [[(head + "  ", {"bold": True}), desc]], size=20, anchor="m")
     steps = ["Dense check: 5.68", "R1 to R4", "E1 to E3", "Report: Dec 4"]
     for i, label in enumerate(steps):
         x = 1.12 + i * 4.55
@@ -634,7 +671,11 @@ def build(template, out):
              "or a rented GPU as backup. Next is the dense baseline check, then R1 to R4, then the extension. The report is due December 4.")
 
     # ---- 13 Q&A
-    txt(qa, 1.12, 9.55, 12, 0.6, "Thank you  ·  github.com/khangpt2k6/NLP_CLASS", size=26, color=GRAY)
+    pic(qa, "qr_repo.png", 1.12, 7.35, h=1.9)
+    txt(qa, 3.3, 7.6, 8, 0.8, "Thank you", size=44, bold=True, anchor="m")
+    txt(qa, 3.3, 8.4, 8, 0.6, "Code, proposal and slides are in the repo", size=24, color=GRAY, anchor="m")
+    pic(qa, "github.png", 1.12, 9.6, h=0.5)
+    txt(qa, 1.8, 9.6, 12, 0.5, "github.com/khangpt2k6/NLP_CLASS", size=26, color=GRAY, anchor="m")
     notes(qa, "[0:05] Thank you. Questions? Total target: 7:40, which leaves 20 seconds of slack under the 8 minute limit.")
 
     # ---- drop unused template slides, put Q&A last
