@@ -37,17 +37,29 @@ class CalibRunner:
     """Holds the hidden states that enter the current block, for every calibration sample."""
 
     @torch.no_grad()
-    def __init__(self, model, calib_ids: torch.Tensor):
+    def __init__(self, model, calib_ids: torch.Tensor, reserve_bytes: int = 0):
         self.model = model
         self.layers = get_layers(model)
         dev = input_device(model)
         n, seqlen = calib_ids.shape
         dtype = next(model.parameters()).dtype
-        self.inps = torch.zeros((n, seqlen, model.config.hidden_size), dtype=dtype, device=dev)
+        # Both buffers normally sit on the GPU, as in the original code. If that would leave less than
+        # reserve_bytes free (SparseGPT on a 7B or 8B model with a 24 GB card), they stay in CPU RAM and
+        # each sample is moved over for its forward pass. The numbers are the same either way.
+        store = dev
+        if dev.type == "cuda":
+            need = 2 * n * seqlen * model.config.hidden_size * (torch.finfo(dtype).bits // 8)
+            free = torch.cuda.mem_get_info(dev)[0] + torch.cuda.memory_reserved(dev) - torch.cuda.memory_allocated(dev)
+            if free - need < reserve_bytes:
+                store = torch.device("cpu")
+                print(f"calibration activations ({need / 2**30:.1f} GB) kept in CPU RAM, "
+                      f"only {free / 2**30:.1f} GB of GPU memory is free")
+        self.store = store
+        self.inps = torch.zeros((n, seqlen, model.config.hidden_size), dtype=dtype, device=store)
         count = [0]
 
         def grab_input(module, args, kwargs):
-            self.inps[count[0]] = _hidden(args, kwargs)[0]
+            self.inps[count[0]] = _hidden(args, kwargs)[0].to(store)
             count[0] += 1
             raise _Stop
 
@@ -93,15 +105,16 @@ class CalibRunner:
         """Forward all samples through block i, writing into self.outs."""
         layer = self.layers[i]
         dev = module_device(layer)
-        if self.inps.device != dev:
+        on_cpu = self.store.type == "cpu"
+        if not on_cpu and self.inps.device != dev:
             self.inps, self.outs = self.inps.to(dev), self.outs.to(dev)
         args = _to(self.block_args[i], dev)
         kwargs = _to(self.block_kwargs[i], dev)
         for j in range(self.nsamples):
-            out = layer(self.inps[j:j + 1], *args, **kwargs)
+            out = layer(self.inps[j:j + 1].to(dev), *args, **kwargs)
             if isinstance(out, (tuple, list)):
                 out = out[0]
-            self.outs[j] = out[0]
+            self.outs[j] = out[0].to(self.outs.device)
 
     def advance(self) -> None:
         self.inps, self.outs = self.outs, self.inps

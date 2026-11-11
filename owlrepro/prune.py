@@ -15,6 +15,19 @@ METHODS = ("magnitude", "wanda", "sparsegpt")
 ALLOCS = ("uniform", "owl", "owl_inv", "owl_shuffle", "er", "er_plus", "global")
 # total number of scores sampled to estimate the global threshold
 GLOBAL_SAMPLE = 20_000_000
+GB = 2 ** 30
+
+
+def reserve_bytes(model, method: str) -> int:
+    """GPU memory the pruning step needs on top of the model and the calibration activations.
+
+    SparseGPT holds a float32 Hessian per linear layer of a block and makes a few copies of the
+    largest one (inputs x inputs) while inverting it. Wanda only needs room for one score matrix.
+    """
+    if method != "sparsegpt":
+        return GB
+    cols = max(l.weight.shape[1] for layer in get_layers(model) for l in find_linears(layer).values())
+    return 5 * cols * cols * 4 + GB
 
 
 @torch.no_grad()
@@ -24,7 +37,7 @@ def outlier_pass(model, calib: torch.Tensor, ms, ref_means=None, global_sample: 
     Returns per-block LOD (percent) for every M in ms, the per-block mean Wanda score, and
     optionally a random sample of scores per linear layer for the global allocation.
     """
-    runner = CalibRunner(model, calib)
+    runner = CalibRunner(model, calib, reserve_bytes(model, "wanda"))
     layers = runner.layers
     lod = {float(M): [] for M in ms}
     means = []
@@ -86,7 +99,7 @@ def apply_pruning(model, calib: torch.Tensor | None, method: str, ratio_of, matr
         return
 
     stat_cls = InputNorm if method == "wanda" else SparseGPT
-    runner = CalibRunner(model, calib)
+    runner = CalibRunner(model, calib, reserve_bytes(model, method))
     for i, layer in enumerate(runner.layers):
         subset = find_linears(layer)
         stats = {n: stat_cls(m) for n, m in subset.items()}

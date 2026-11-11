@@ -17,9 +17,12 @@ import sys
 import time
 
 import numpy as np
-import torch
 
-from . import data
+# less fragmentation when a 7B or 8B model nearly fills a 24 GB card (must be set before torch starts CUDA)
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+import torch  # noqa: E402
+
+from . import data  # noqa: E402
 from .evaluate import ZEROSHOT_TASKS, perplexity, zeroshot
 from .models import block_sparsity, load_model, load_tokenizer, total_sparsity
 from .prune import ALLOCS, METHODS, outlier_pass, prune, summarize_lod
