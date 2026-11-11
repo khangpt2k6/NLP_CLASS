@@ -10,7 +10,7 @@ Authors: Tuan Khang Phan, Xuan Gia Han Nguyen (University of South Florida).
 - [notebooks/run_all.ipynb](notebooks/run_all.ipynb): runs every experiment on one local GPU (Anaconda) and shows each result next to the paper
 - [scripts/make_jobs.py](scripts/make_jobs.py): writes the job lists in [experiments/](experiments/)
 - [slurm/run_array.sbatch](slurm/run_array.sbatch): runs a job list as a SLURM array on GAIVI
-- [scripts/collect.py](scripts/collect.py): gathers `results/*/*.json` into `results/summary.csv`
+- [scripts/collect.py](scripts/collect.py): gathers `results/*/*.json` into `results/summary.csv` (one row per job), `results/owl_gain.csv` (uniform vs OWL and dL) and `results/blocks.csv` (per-block sparsity and LOD)
 - [scripts/estimate.py](scripts/estimate.py): rough run time of each job list on a given GPU
 - [docs/gpu_resources.md](docs/gpu_resources.md): where to get GPUs
 - [tests/](tests/): unit tests on tiny random models (CPU, no downloads)
