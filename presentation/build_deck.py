@@ -817,7 +817,8 @@ def build(template, out):
             rows.append([r["label"], (f"{r['wanda'][0]:.1f}", P), owl_cell(r["wanda"]), (f"{r['sparsegpt'][0]:.1f}", P), owl_cell(r["sparsegpt"])])
         add_table(s, 12.0, 4.5, [2.35, 1.2, 1.15, 1.1, 1.15], rows, row_h=0.47, size=18, head_size=18, name="Table: perplexity at 70%, uniform vs OWL")
         if len(hurt) == 2:
-            finding = [f"OWL hurts {' and '.join(hurt)}, the smallest of each family. The gain does not grow as models shrink."]
+            finding = [f"On {' and '.join(hurt)}, the smallest of each family, OWL is no better than uniform across 3 seeds. "
+                       "The gain does not grow as models shrink."]
         else:
             finding = [f"With Wanda, OWL helps {len(helped)} of {len(rows_e1)} models."]
         lod = [(r["lod_cv"], r["lod_u"], r["wanda"][2], r["sparsegpt"][2]) for r in rows_e1 if r["lod_cv"] is not None]
@@ -842,10 +843,13 @@ def build(template, out):
         best = max(rows_e1, key=lambda r: r["wanda"][2])
         notes(s, f"[0:45] Our first extension result, at 70 percent sparsity. Bars above zero mean OWL beats uniform. With Wanda, OWL helps {len(helped)} of "
                  f"{len(rows_e1)} models. The largest gain is on {best['label']}, where perplexity drops from {best['wanda'][0]:.0f} to {best['wanda'][1]:.0f}. "
-                 + (f"But OWL hurts {' and '.join(hurt)}, the smallest model of each family. " if len(hurt) == 2 else "")
+                 + (f"On {' and '.join(hurt)}, the smallest model of each family, OWL is worse here, but with two more calibration "
+                    "seeds it is about the same as uniform, so the honest reading is that OWL does not help reliably there. "
+                    "With tuned M and lambda it does help: on Llama 1B perplexity drops from 389 to 286. " if len(hurt) == 2 else "")
                  + "So the gain does not grow as models shrink, which is the opposite of the paper's trend on LLaMA-1. "
-                 "With SparseGPT the effect is smaller and mixed." + rho_note
-                 + " These are single-seed runs, so the small differences may be noise.")
+                 "A shuffle control, the same block sparsities on the wrong blocks, is worse than real OWL on every model, "
+                 "so where OWL helps it is because of where the sparsity goes. "
+                 "With SparseGPT the effect is smaller and mixed." + rho_note)
 
     # ---- 12 resources
     s = content("4. What do we need?", "212 runs, about 26 A100 hours, no paid API")
